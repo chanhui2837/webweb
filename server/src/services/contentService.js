@@ -2,7 +2,6 @@ import crypto from 'node:crypto';
 import {
   Bookmark,
   Comment,
-  EditorDoc,
   Episode,
   EpisodePurchase,
   Illustration,
@@ -13,6 +12,7 @@ import {
   Webtoon,
 } from '../models/index.js';
 import { isDupKey } from '../utils/http.js';
+import { deleteEditorDocs } from './editorDocService.js';
 import { kstDay } from '../utils/time.js';
 
 /** 조회수 중복 방지: 같은 사용자(또는 IP)가 같은 작품을 하루에 여러 번 봐도 1회만 집계 */
@@ -31,7 +31,7 @@ export async function deleteEpisodeCascade(ep) {
   const wasPublished = ep.status === 'published';
   const docIds = ep.pages.map((p) => p.editorDoc).filter(Boolean);
   await Promise.all([
-    EditorDoc.deleteMany({ _id: { $in: docIds } }),
+    deleteEditorDocs(docIds),
     Comment.deleteMany({ targetType: 'episode', target: ep._id }),
     Like.deleteMany({ targetType: 'episode', target: ep._id }),
     ScheduledUpload.updateMany({ episode: ep._id, status: 'pending' }, { $set: { status: 'cancelled', processedAt: new Date() } }),
@@ -51,7 +51,7 @@ export async function deleteWebtoonCascade(webtoon) {
   const epIds = eps.map((e) => e._id);
   const docIds = eps.flatMap((e) => e.pages.map((p) => p.editorDoc)).filter(Boolean);
   await Promise.all([
-    EditorDoc.deleteMany({ _id: { $in: docIds } }),
+    deleteEditorDocs(docIds),
     Comment.deleteMany({ targetType: 'episode', target: { $in: epIds } }),
     Like.deleteMany({ $or: [{ targetType: 'episode', target: { $in: epIds } }, { targetType: 'webtoon', target: webtoon._id }] }),
     Bookmark.deleteMany({ targetType: 'webtoon', target: webtoon._id }),
@@ -65,7 +65,7 @@ export async function deleteWebtoonCascade(webtoon) {
 
 export async function deleteIllustrationCascade(ill) {
   await Promise.all([
-    ill.editorDoc ? EditorDoc.deleteOne({ _id: ill.editorDoc }) : null,
+    ill.editorDoc ? deleteEditorDocs([ill.editorDoc]) : null,
     Comment.deleteMany({ targetType: 'illustration', target: ill._id }),
     Like.deleteMany({ targetType: 'illustration', target: ill._id }),
     Bookmark.deleteMany({ targetType: 'illustration', target: ill._id }),

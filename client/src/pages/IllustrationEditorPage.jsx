@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Editor from '../editor/Editor.jsx';
+import { loadDoc } from '../editor/docApi.js';
 import { api } from '../lib/api.js';
 import { fmtDate } from '../lib/format.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -34,8 +35,7 @@ export default function IllustrationEditorPage() {
         setIll(i);
         setTitle(i.title);
         setForm({ description: i.description || '', tags: (i.tags || []).join(' '), visibility: i.visibility });
-        const d = await api.get(`/editor-docs/${i.editorDocId}`);
-        setDocData(d.data);
+        setDocData(await loadDoc(i.editorDocId));
       } catch (e) { setError(e.message); }
     })();
   }, [id]);
@@ -43,10 +43,7 @@ export default function IllustrationEditorPage() {
   const save = useCallback(async ({ quiet = false } = {}) => {
     const ed = editorRef.current;
     try {
-      if (ed?.isDirty()) {
-        await api.put(`/editor-docs/${ill.editorDocId}`, { data: ed.getData() });
-        ed.markSaved();
-      }
+      if (ed?.isDirty()) await ed.save();
       if (titleDirty) {
         await api.patch(`/illustrations/${id}`, { title });
         setTitleDirty(false);
@@ -86,7 +83,7 @@ export default function IllustrationEditorPage() {
   }
   async function remove() {
     if (!window.confirm('이 그림을 영구 삭제할까요? 좋아요·댓글도 함께 삭제돼요.')) return;
-    try { await api.del(`/illustrations/${id}`); editorRef.current?.markSaved(); setTitleDirty(false); toast.success('삭제했어요.'); nav('/projects?tab=illustrations'); } catch (e) { toast.error(e); }
+    try { await api.del(`/illustrations/${id}`); setDirty(false); setTitleDirty(false); toast.success('삭제했어요.'); nav('/projects?tab=illustrations'); } catch (e) { toast.error(e); }
   }
 
   if (error) return <div className="page"><Empty title={error} action={<Link className="btn" to="/projects?tab=illustrations">프로젝트로</Link>} /></div>;
@@ -114,7 +111,7 @@ export default function IllustrationEditorPage() {
       <div className="ed-body">
         <div className="ed-main">
           {docData === undefined ? <div className="ed-loading">불러오는 중…</div> : (
-            <Editor ref={editorRef} data={docData} defaultSize={{ w: 1200, h: 1200 }} onDirtyChange={setDirty} />
+            <Editor ref={editorRef} docId={ill.editorDocId} data={docData} defaultSize={{ w: 1200, h: 1200 }} onDirtyChange={setDirty} />
           )}
         </div>
       </div>

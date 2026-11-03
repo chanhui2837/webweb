@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { EditorDoc, Episode, Like, RewardLog, Webtoon } from '../models/index.js';
+import { Episode, Like, RewardLog, Webtoon } from '../models/index.js';
 import { isAdmin, optionalAuth, requireAuth } from '../middleware/auth.js';
 import { writeLimiter } from '../middleware/rateLimits.js';
 import { ah, assertId, badRequest, forbidden, HttpError, notFound, parse } from '../utils/http.js';
@@ -10,9 +10,11 @@ import { AUTHOR_FIELDS, episodeSummary, webtoonCard } from '../utils/serialize.j
 import { cancelSchedule, episodeAccess, publishNow, schedule } from '../services/episodeService.js';
 import { grantReward, ownsPreview, PREVIEW_PRICE, purchasePreview, walletSummary } from '../services/cookieService.js';
 import { deleteEpisodeCascade, registerView } from '../services/contentService.js';
+import { copyEditorDoc, deleteEditorDocs } from '../services/editorDocService.js';
 
 const router = Router();
 const MAX_PAGES = 60;
+const MAX_SLICES_PER_PAGE = 400; // 긴 장(합친 장)은 여러 이미지로 잘려 올라온다
 
 async function loadEpisode(id) {
   assertId(id, '회차 ID');
@@ -29,7 +31,7 @@ function editView(ep) {
   return {
     ...episodeSummary(ep),
     authorNote: ep.authorNote,
-    pages: ep.pages.map((p) => ({ id: String(p._id), editorDocId: p.editorDoc ? String(p.editorDoc) : null, imageUrl: p.imageUrl, width: p.width, height: p.height })),
+    pages: ep.pages.map((p) => ({ id: String(p._id), editorDocId: p.editorDoc ? String(p.editorDoc) : null, imageUrl: p.imageUrl, images: p.images || [], width: p.width, height: p.height })),
   };
 }
 
@@ -71,9 +73,8 @@ router.post('/:id/pages', requireAuth, writeLimiter, ah(async (req, res) => {
   assertOwner(req.user, ep);
   if (ep.pages.length >= MAX_PAGES) throw badRequest(`한 회차에는 최대 ${MAX_PAGES}장까지 넣을 수 있습니다.`);
   const source = req.body?.duplicateFrom ? ep.pages.id(String(req.body.duplicateFrom)) : null;
-  let data = null;
-  if (source?.editorDoc) data = (await EditorDoc.findById(source.editorDoc).lean())?.data ?? null;
-  const doc = await EditorDoc.create({ owner: req.user._id, kind: 'episodePage', data, byteSize: data ? JSON.stringify(data).length : 0 });
+  // 복제는 서버 안에서 타일까지 통째로 복사
+  const doc = await copyEditorDoc(source?.editorDoc || null, req.user._id, 'episodePage');
   const insertAt = Number.isInteger(req.body?.index) ? Math.max(0, Math.min(ep.pages.length, req.body.index)) : ep.pages.length;
   ep.pages.splice(insertAt, 0, { editorDoc: doc._id });
   await ep.save();
@@ -86,10 +87,33 @@ router.delete('/:id/pages/:pageId', requireAuth, ah(async (req, res) => {
   const page = ep.pages.id(req.params.pageId);
   if (!page) throw notFound('페이지를 찾을 수 없습니다.');
   if (ep.pages.length <= 1) throw badRequest('회차에는 최소 1장의 페이지가 있어야 합니다.');
-  if (page.editorDoc) await EditorDoc.deleteOne({ _id: page.editorDoc, owner: req.user._id });
+  if (page.editorDoc) await deleteEditorDocs([page.editorDoc]);
   page.deleteOne();
   await ep.save();
   res.json({ episode: editView(ep) });
+}));
+
+/* ---------- 장 합치기: 연속된 여러 장을 첫 장 하나로 (횟수 제한 없음) ----------
+ * 브라우저가 합친 그림을 첫 장의 편집 문서에 먼저 저장한 뒤 이 API 를 호출한다.
+ * 서버는 나머지 장(과 편집 데이터·타일)을 지우고 첫 장만 남긴다.
+ */
+router.post('/:id/pages/merge', requireAuth, writeLimiter, ah(async (req, res) => {
+  const ep = await loadEpisode(req.params.id);
+  assertOwner(req.user, ep);
+  const { pageIds } = parse(z.object({ pageIds: z.array(z.string()).min(2).max(MAX_PAGES) }), req.body);
+  const index = ep.pages.findIndex((p) => String(p._id) === pageIds[0]);
+  if (index < 0) throw badRequest('합칠 장을 찾을 수 없습니다. 새로고침해 주세요.');
+  for (let i = 1; i < pageIds.length; i += 1) {
+    if (String(ep.pages[index + i]?._id) !== pageIds[i]) throw badRequest('연속된 장만 합칠 수 있습니다. 새로고침 후 다시 시도해 주세요.');
+  }
+  const keep = ep.pages[index];
+  const removed = ep.pages.slice(index + 1, index + pageIds.length);
+  await deleteEditorDocs(removed.map((p) => p.editorDoc));
+  ep.pages.splice(index + 1, removed.length);
+  // 합친 장은 다시 렌더링해서 업로드해야 하므로 이전 이미지는 비운다 (공개 회차는 '수정 반영' 시 갱신)
+  if (ep.status === 'draft') { keep.imageUrl = ''; keep.images = []; }
+  await ep.save();
+  res.json({ episode: editView(ep), mergedCount: pageIds.length });
 }));
 
 /* ---------- 업로드: 렌더링된 페이지 이미지 반영 + 즉시 공개/예약/수정 ---------- */
@@ -99,9 +123,13 @@ const publishSchema = z.object({
   thumbnailUrl: imageUrlField.optional(),
   pages: z.array(z.object({
     id: z.string(),
-    imageUrl: imageUrlField.refine((v) => v !== '', '렌더링된 페이지 이미지가 필요합니다.'),
+    images: z.array(z.object({
+      url: imageUrlField.refine((v) => v !== '', '렌더링된 페이지 이미지가 필요합니다.'),
+      width: z.number().int().min(1).max(20000),
+      height: z.number().int().min(1).max(20000),
+    })).min(1, '렌더링된 페이지 이미지가 필요합니다.').max(MAX_SLICES_PER_PAGE),
     width: z.number().int().min(1).max(20000).optional(),
-    height: z.number().int().min(1).max(40000).optional(),
+    height: z.number().int().min(1).max(600000).optional(),
   })).min(1).max(MAX_PAGES),
 });
 
@@ -116,9 +144,10 @@ router.post('/:id/publish', requireAuth, writeLimiter, ah(async (req, res) => {
   }
   ep.pages = data.pages.map((p) => {
     const page = map.get(p.id);
-    page.imageUrl = p.imageUrl;
-    page.width = p.width;
-    page.height = p.height;
+    page.images = p.images;
+    page.imageUrl = p.images[0].url;
+    page.width = p.width || p.images[0].width;
+    page.height = p.height || p.images.reduce((s, im) => s + im.height, 0);
     return page;
   });
   if (data.thumbnailUrl !== undefined) ep.thumbnailUrl = data.thumbnailUrl;
@@ -209,7 +238,11 @@ router.get('/:id', optionalAuth, ah(async (req, res) => {
   return res.json({
     ...base,
     locked: false,
-    pages: ep.pages.filter((p) => p.imageUrl).map((p) => ({ id: String(p._id), imageUrl: p.imageUrl, width: p.width, height: p.height })),
+    // 각 장의 잘린 이미지들을 순서대로 이어 붙여 세로 스크롤로 보여 준다
+    pages: ep.pages.flatMap((p) => {
+      const imgs = p.images?.length ? p.images : (p.imageUrl ? [{ url: p.imageUrl, width: p.width, height: p.height }] : []);
+      return imgs.map((im, i) => ({ id: `${p._id}-${i}`, imageUrl: im.url, width: im.width, height: im.height }));
+    }),
     viewer: { liked, isOwner: isOwner(req.user, ep) },
     reward,
   });

@@ -242,7 +242,7 @@ test('웹툰 생성 → 편집 → 업로드 → 감상', async () => {
   // 업로드(즉시 공개)
   const img = await alice.upload('/api/uploads/image?kind=page');
   const ed = await alice.get(`/api/episodes/${ctx.ep1}/edit`);
-  r = await alice.post(`/api/episodes/${ctx.ep1}/publish`, { mode: 'now', pages: ed.body.episode.pages.map((p) => ({ id: p.id, imageUrl: img.body.url, width: 800, height: 1200 })) });
+  r = await alice.post(`/api/episodes/${ctx.ep1}/publish`, { mode: 'now', pages: ed.body.episode.pages.map((p) => ({ id: p.id, images: [{ url: img.body.url, width: 800, height: 1200 }], width: 800, height: 1200 })) });
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.episode.status, 'published');
   assert.equal(r.body.reward?.amount, 2, '연재 보상');
@@ -266,6 +266,66 @@ test('웹툰 생성 → 편집 → 업로드 → 감상', async () => {
   assert.equal(ep.viewCount, 1);
 });
 
+test('타일 저장 · 장 복제 · 장 합치기 · 잘린 이미지 업로드', async () => {
+  const TILE = 'data:image/png;base64,' + PNG.toString('base64');
+  let r = await alice.post(`/api/webtoons/${ctx.webtoonId}/episodes`, { title: '합치기 테스트' });
+  const epId = r.body.episode.id;
+  r = await alice.post(`/api/episodes/${epId}/pages`, {});
+  r = await alice.post(`/api/episodes/${epId}/pages`, {});
+  let pages = r.body.episode.pages;
+  assert.equal(pages.length, 3);
+  const meta = (h, keys) => ({ version: 2, width: 800, height: h, background: '#ffffff', layers: [{ id: 'la', name: '선화', visible: true, opacity: 1, blend: 'multiply', clip: false, tileKeys: keys, items: [] }] });
+  r = await alice.post(`/api/editor-docs/${pages[0].editorDocId}/tiles`, { put: [{ layer: 'la', key: '0,0', d: TILE }, { layer: 'la', key: '0,1', d: TILE }] });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  r = await alice.put(`/api/editor-docs/${pages[0].editorDocId}`, { data: meta(2048, ['0,0', '0,1']) });
+  assert.equal(r.status, 200);
+  r = await alice.post(`/api/editor-docs/${pages[0].editorDocId}/tiles`, { put: [{ layer: 'la', key: 'x,y', d: TILE }] });
+  assert.equal(r.status, 400, '잘못된 타일 키 거부');
+  r = await bob.post(`/api/editor-docs/${pages[0].editorDocId}/tiles`, { put: [{ layer: 'la', key: '0,2', d: TILE }] });
+  assert.equal(r.status, 403, '타인 문서에 타일 저장 불가');
+  r = await alice.put(`/api/editor-docs/${pages[0].editorDocId}`, { data: { ...meta(2048, []), layers: [{ id: 'la', name: 'x', bitmap: 'data:image/png;base64,AA==' }] } });
+  assert.equal(r.status, 400, '예전 bitmap 형식 저장 거부');
+  r = await alice.get(`/api/editor-docs/${pages[0].editorDocId}/tiles?limit=1`);
+  assert.equal(r.body.tiles.length, 1);
+  assert.ok(r.body.next);
+  r = await alice.get(`/api/editor-docs/${pages[0].editorDocId}/tiles?limit=1&after=${r.body.next}`);
+  assert.equal(r.body.tiles.length, 1);
+  assert.equal(r.body.next, null);
+  r = await alice.put(`/api/editor-docs/${pages[0].editorDocId}`, { data: meta(2048, ['0,0']) });
+  assert.equal(r.body.removedTiles, 1, '메타에서 빠진 타일 정리');
+  r = await alice.post(`/api/episodes/${epId}/pages`, { duplicateFrom: pages[0].id, index: 1 });
+  pages = r.body.episode.pages;
+  assert.equal(pages.length, 4);
+  r = await alice.get(`/api/editor-docs/${pages[1].editorDocId}`);
+  assert.equal(r.body.tileCount, 1, '복제 시 타일도 복사');
+  assert.equal(r.body.data.layers[0].blend, 'multiply');
+  r = await alice.post(`/api/episodes/${epId}/pages/merge`, { pageIds: [pages[0].id, pages[2].id] });
+  assert.equal(r.status, 400, '연속되지 않은 장 합치기 거부');
+  r = await bob.post(`/api/episodes/${epId}/pages/merge`, { pageIds: [pages[0].id, pages[1].id] });
+  assert.equal(r.status, 403);
+  const removedDoc = pages[1].editorDocId;
+  r = await alice.post(`/api/episodes/${epId}/pages/merge`, { pageIds: [pages[0].id, pages[1].id] });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.episode.pages.length, 3);
+  assert.equal(await models.EditorDoc.countDocuments({ _id: removedDoc }), 0, '합쳐진 장 문서 삭제');
+  assert.equal(await models.EditorTile.countDocuments({ doc: removedDoc }), 0, '합쳐진 장 타일 삭제');
+  pages = r.body.episode.pages;
+  r = await alice.post(`/api/episodes/${epId}/pages/merge`, { pageIds: pages.map((p) => p.id) });
+  assert.equal(r.body.episode.pages.length, 1, '전체를 한 장으로');
+  r = await alice.put(`/api/editor-docs/${r.body.episode.pages[0].editorDocId}`, { data: meta(100000, ['0,0']) });
+  assert.equal(r.status, 200, '세로 100,000px 긴 장 저장');
+  const img = await alice.upload('/api/uploads/image?kind=page');
+  const ed = await alice.get(`/api/episodes/${epId}/edit`);
+  const slices = Array.from({ length: 5 }, () => ({ url: img.body.url, width: 800, height: 1600 }));
+  r = await alice.post(`/api/episodes/${epId}/publish`, { mode: 'now', pages: [{ id: ed.body.episode.pages[0].id, images: slices, width: 800, height: 8000 }] });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  r = await new Client().get(`/api/episodes/${epId}`);
+  assert.equal(r.body.pages.length, 5, '잘린 이미지 5장이 순서대로');
+  const docId = ed.body.episode.pages[0].editorDocId;
+  await alice.del(`/api/episodes/${epId}`);
+  assert.equal(await models.EditorTile.countDocuments({ doc: docId }), 0, '회차 삭제 시 타일 정리');
+});
+
 test('관심 웹툰 + 새 회차 알림 + 예약 업로드 + 쿠키 미리보기', async () => {
   let r = await bob.post('/api/bookmarks', { targetType: 'webtoon', targetId: ctx.webtoonId, bookmark: true });
   assert.equal(r.body.bookmarkCount, 1);
@@ -276,7 +336,7 @@ test('관심 웹툰 + 새 회차 알림 + 예약 업로드 + 쿠키 미리보기
   ctx.ep2 = r.body.episode.id;
   const img = await alice.upload('/api/uploads/image?kind=page');
   const ed = await alice.get(`/api/episodes/${ctx.ep2}/edit`);
-  const pages = ed.body.episode.pages.map((p) => ({ id: p.id, imageUrl: img.body.url }));
+  const pages = ed.body.episode.pages.map((p) => ({ id: p.id, images: [{ url: img.body.url, width: 40, height: 30 }] }));
   r = await alice.post(`/api/episodes/${ctx.ep2}/publish`, { mode: 'schedule', publishAt: '2020-01-01T10:00', pages });
   assert.equal(r.status, 400, '과거 시각 예약 불가');
   // KST 기준 2시간 뒤
@@ -354,7 +414,7 @@ test('댓글 + 좋아요(중복 방지) + 알림 + 쿠키 보상 한도', async 
   for (let i = 0; i < 6; i += 1) {
     const e = await alice.post(`/api/webtoons/${ctx.webtoonId}/episodes`, { title: `추가 ${i}` });
     const ed = await alice.get(`/api/episodes/${e.body.episode.id}/edit`);
-    await alice.post(`/api/episodes/${e.body.episode.id}/publish`, { mode: 'now', pages: ed.body.episode.pages.map((p) => ({ id: p.id, imageUrl: img.body.url })) });
+    await alice.post(`/api/episodes/${e.body.episode.id}/publish`, { mode: 'now', pages: ed.body.episode.pages.map((p) => ({ id: p.id, images: [{ url: img.body.url, width: 40, height: 30 }] })) });
     const v = await bob.get(`/api/episodes/${e.body.episode.id}`);
     if (v.body.reward) rewards += 1;
   }

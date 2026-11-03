@@ -1,5 +1,5 @@
 export { User, nicknameKeyOf } from './User.js';
-export { Webtoon, Episode, Illustration, EditorDoc, GENRES } from './Content.js';
+export { Webtoon, Episode, Illustration, EditorDoc, EditorTile, GENRES } from './Content.js';
 export { Comment, Like, Bookmark, Report, ViewLog } from './Social.js';
 export {
   CookieWallet,

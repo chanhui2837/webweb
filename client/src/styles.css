@@ -531,11 +531,13 @@ textarea.input { resize: vertical; line-height: 1.5; }
 .ed-size { font-size: 12px; color: var(--ink-3); margin-left: 6px; font-variant-numeric: tabular-nums; }
 .ed-panel-toggle { display: none; }
 .ed-panel-close { display: none; flex: 0 0 44px !important; font-size: 16px; color: var(--ink-2) !important; }
-.ed-viewport { flex: 1; overflow: auto; position: relative; background: #e3e5ee radial-gradient(circle, #cfd2df 1px, transparent 1.2px) 0 0 / 18px 18px; }
-.ed-stage { position: relative; padding: 24px; margin: 0 auto; }
-.ed-canvas { display: block; background: repeating-conic-gradient(#f2f2f6 0% 25%, #fff 0% 50%) 0 0 / 16px 16px; box-shadow: 0 0 0 1px rgba(23,24,43,.25), 0 8px 24px rgba(23,24,43,.12); touch-action: none; cursor: crosshair; }
+.ed-viewport { flex: 1; position: relative; min-height: 0; overflow: hidden; background: #e3e5ee; }
+.ed-scroller { position: absolute; inset: 0; overflow: auto; }
+.ed-spacer-box { pointer-events: none; }
+.ed-canvas { position: absolute; left: 0; top: 0; display: block; touch-action: none; cursor: crosshair; }
 .ed-canvas.tool-select { cursor: default; }
 .ed-canvas.tool-hand { cursor: grab; }
+.ed-loading.abs { position: absolute; inset: 0; display: grid; place-items: center; background: #e3e5ee; }
 
 .ed-panel { width: 288px; flex: none; background: #fff; border-left: 1.5px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .ed-tabs { display: flex; border-bottom: 1px solid var(--line); flex: none; }
@@ -581,6 +583,20 @@ textarea.input { resize: vertical; line-height: 1.5; }
 .ed-layer-name { flex: 1; min-width: 0; text-align: left; border: 0; background: none; padding: 6px 4px; font-size: 13px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ed-layer-name small { font-weight: 500; color: var(--ink-3); }
 .ed-layer-opts { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.ed-layers li.clipped { padding-left: 14px; }
+.ed-clip-mark { color: var(--cobalt); font-weight: 900; margin-right: 3px; }
+.ed-add-layer { display: flex; gap: 6px; }
+.ed-add-layer select { flex: 1; min-width: 0; border: 1.5px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 13px; background: #fff; }
+.ed-checks { display: flex; flex-direction: column; gap: 6px; }
+.ed-sub { display: flex; flex-direction: column; gap: 5px; }
+.ed-sub-title { font-size: 11.5px; font-weight: 800; color: var(--ink-3); }
+.ed-input { border: 1.5px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 14px; }
+.ed-on-layer { font-weight: 600; color: var(--ink-3); }
+.ed-merge-btn { width: 100%; margin-top: 6px; border: 1.5px dashed var(--ink-3); background: var(--marker-soft); color: var(--ink); border-radius: 5px; padding: 4px 0; font-size: 11.5px; font-weight: 800; }
+.ed-merge-btn:hover { border-color: var(--ink); background: var(--marker); }
+.ed-merge-btn:disabled { opacity: .4; }
+.ed-long { font-weight: 700; color: var(--cobalt); font-size: 10.5px; }
+.ed-page-thumb:disabled { opacity: .6; }
 
 /* ==========================================================================
    반응형

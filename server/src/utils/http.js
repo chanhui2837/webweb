@@ -73,6 +73,10 @@ export function errorHandler(err, req, res, _next) {
     const first = Object.values(err.errors)[0];
     return res.status(400).json({ error: first?.message || '입력값 오류', code: 'VALIDATION' });
   }
+  if (err?.code === 'ENOENT' || err?.status === 404 || err?.statusCode === 404) {
+    // 없는 업로드 파일 등 — 서버 오류(500)가 아니라 404 로 응답
+    return res.status(404).json({ error: '파일을 찾을 수 없습니다.', code: 'NOT_FOUND' });
+  }
   if (isDupKey(err)) {
     return res.status(409).json({ error: '이미 존재하는 데이터입니다.', code: 'DUPLICATE' });
   }

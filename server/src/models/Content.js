@@ -36,10 +36,13 @@ webtoonSchema.index({ viewCount: -1 });
 webtoonSchema.index({ likeCount: -1 });
 
 /* ---------------- Episodes ---------------- */
+const sliceSchema = new Schema({ url: String, width: Number, height: Number }, { _id: false });
 const pageSchema = new Schema(
   {
     editorDoc: { type: Schema.Types.ObjectId, ref: 'EditorDoc' },
-    imageUrl: { type: String, default: '' }, // 업로드(렌더링)된 최종 이미지
+    imageUrl: { type: String, default: '' }, // 첫 번째 이미지 (썸네일·호환용)
+    // 긴 장은 일정 높이로 잘라 여러 이미지로 올린다 (감상 화면에서 이어 붙여 보여 줌)
+    images: { type: [sliceSchema], default: [] },
     width: Number,
     height: Number,
   },
@@ -112,7 +115,22 @@ const editorDocSchema = new Schema(
 );
 editorDocSchema.index({ owner: 1 });
 
+/* ---------------- EditorTiles (레이어 그림 타일, 1024×1024 PNG) ---------------- */
+// 그린 곳만 타일로 저장하므로 캔버스를 세로로 무한히 이어 붙여도 문서 크기 제한(16MB)에 걸리지 않는다.
+const editorTileSchema = new Schema(
+  {
+    doc: { type: Schema.Types.ObjectId, ref: 'EditorDoc', required: true },
+    layer: { type: String, required: true },
+    key: { type: String, required: true }, // "tx,ty"
+    data: { type: String, required: true }, // data:image/png;base64,...
+  },
+  { timestamps: true, collection: 'editortiles' }
+);
+editorTileSchema.index({ doc: 1, layer: 1, key: 1 }, { unique: true });
+editorTileSchema.index({ doc: 1, _id: 1 });
+
 export const Webtoon = mongoose.models.Webtoon || mongoose.model('Webtoon', webtoonSchema);
 export const Episode = mongoose.models.Episode || mongoose.model('Episode', episodeSchema);
 export const Illustration = mongoose.models.Illustration || mongoose.model('Illustration', illustrationSchema);
 export const EditorDoc = mongoose.models.EditorDoc || mongoose.model('EditorDoc', editorDocSchema);
+export const EditorTile = mongoose.models.EditorTile || mongoose.model('EditorTile', editorTileSchema);

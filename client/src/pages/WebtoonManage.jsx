@@ -1,0 +1,171 @@
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { api } from '../lib/api.js';
+import { GENRES, epLabel, fmtDate, fmtNum } from '../lib/format.js';
+import { useToast } from '../context/ToastContext.jsx';
+import { Empty, EpisodeStatus, Field, Icon, Modal, Spinner } from '../components/ui.jsx';
+
+function ImagePicker({ label, value, onChange, kind, ratio }) {
+  const ref = useRef(null);
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  async function pick(e) {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    if (f.size > 10 * 1024 * 1024) { toast.error('이미지는 10MB 이하만 올릴 수 있어요.'); return; }
+    setBusy(true);
+    try {
+      const r = await api.upload(`/uploads/image?kind=${kind}`, f);
+      onChange(r.url);
+    } catch (err) { toast.error(err); } finally { setBusy(false); }
+  }
+  return (
+    <div className="img-picker">
+      <span className="img-picker-label">{label}</span>
+      <button type="button" className="img-picker-box" style={{ aspectRatio: ratio }} onClick={() => ref.current.click()} disabled={busy}>
+        {value ? <img src={value} alt="" /> : <span>{busy ? '올리는 중…' : '이미지 선택'}</span>}
+      </button>
+      <input ref={ref} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={pick} />
+      {value && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange('')}>지우기</button>}
+    </div>
+  );
+}
+
+export default function WebtoonManage() {
+  const { id } = useParams();
+  const toast = useToast();
+  const nav = useNavigate();
+  const [data, setData] = useState(null);
+  const [form, setForm] = useState(null);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [newEp, setNewEp] = useState(false);
+  const [epTitle, setEpTitle] = useState('');
+
+  async function load() {
+    try {
+      const r = await api.get(`/webtoons/${id}/manage`);
+      setData(r);
+      setForm({ title: r.webtoon.title, genre: r.webtoon.genre, description: r.webtoon.description, visibility: r.webtoon.visibility, coverUrl: r.webtoon.coverUrl, thumbnailUrl: r.webtoon.ownThumbnailUrl });
+    } catch (e) { setError(e.message); }
+  }
+  useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function save(e) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.patch(`/webtoons/${id}`, form);
+      toast.success('작품 정보를 저장했어요.');
+      await load();
+    } catch (err) { toast.error(err); } finally { setSaving(false); }
+  }
+
+  async function createEpisode(e) {
+    e?.preventDefault();
+    if (!epTitle.trim()) return;
+    try {
+      const r = await api.post(`/webtoons/${id}/episodes`, { title: epTitle });
+      nav(`/projects/episodes/${r.episode.id}`);
+    } catch (err) { toast.error(err); }
+  }
+
+  async function removeEpisode(ep) {
+    if (!window.confirm(`${ep.number}화 「${ep.title}」을(를) 삭제할까요? 댓글과 좋아요도 함께 삭제되며 되돌릴 수 없어요.`)) return;
+    try { await api.del(`/episodes/${ep.id}`); toast.success('회차를 삭제했어요.'); load(); } catch (err) { toast.error(err); }
+  }
+  async function cancelSchedule(ep) {
+    if (!window.confirm('예약을 취소하고 임시저장 상태로 되돌릴까요?')) return;
+    try { await api.post(`/episodes/${ep.id}/cancel-schedule`); toast.success('예약을 취소했어요.'); load(); } catch (err) { toast.error(err); }
+  }
+  async function removeWebtoon() {
+    if (window.prompt(`작품과 모든 회차가 영구 삭제됩니다. 계속하려면 작품 제목 「${data.webtoon.title}」을 입력하세요.`) !== data.webtoon.title) return;
+    try { await api.del(`/webtoons/${id}`); toast.success('웹툰을 삭제했어요.'); nav('/projects'); } catch (err) { toast.error(err); }
+  }
+
+  if (error) return <div className="page"><Empty title={error} action={<Link className="btn" to="/projects">프로젝트로</Link>} /></div>;
+  if (!data || !form) return <Spinner />;
+  const w = data.webtoon;
+  const needsPublic = form.visibility !== 'public';
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <Link to="/projects" className="back-link"><Icon name="chevronL" size={16} /> 프로젝트</Link>
+          <h1>{w.title}</h1>
+          <p className="muted">공개 회차 {w.publishedEpisodeCount}개 · 조회 {fmtNum(w.viewCount)} · 좋아요 {fmtNum(w.likeCount)} · 관심 {fmtNum(w.bookmarkCount)}</p>
+        </div>
+        <div className="row-gap">
+          {w.publishedEpisodeCount > 0 && w.visibility === 'public' && <Link className="btn" to={`/webtoons/${w.id}`}>감상 화면 보기</Link>}
+          <button type="button" className="btn btn-primary" onClick={() => { setEpTitle(`${(data.episodes[0]?.number || 0) + 1}화`); setNewEp(true); }}><Icon name="plus" size={16} /> 새 회차</button>
+        </div>
+      </div>
+      {w.hidden && <p className="notice notice-warn">이 작품은 관리자에 의해 숨김 처리되어 다른 사용자에게 보이지 않아요.</p>}
+
+      <div className="manage-grid">
+        <form className="panel" onSubmit={save}>
+          <h2>작품 설정</h2>
+          <div className="pickers">
+            <ImagePicker label="표지" kind="cover" ratio="3 / 4" value={form.coverUrl} onChange={(v) => setForm({ ...form, coverUrl: v })} />
+            <ImagePicker label="썸네일" kind="thumbnail" ratio="4 / 3" value={form.thumbnailUrl} onChange={(v) => setForm({ ...form, thumbnailUrl: v })} />
+          </div>
+          <Field label="제목" htmlFor="m-t"><input id="m-t" className="input" maxLength={60} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
+          <Field label="장르">
+            <select className="input" value={form.genre} onChange={(e) => setForm({ ...form, genre: e.target.value })}>
+              {GENRES.map((g) => <option key={g}>{g}</option>)}
+            </select>
+          </Field>
+          <Field label="작품 소개" htmlFor="m-d" hint={`${form.description.length}/2000`}>
+            <textarea id="m-d" className="input" rows={5} maxLength={2000} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          </Field>
+          <Field label="공개 설정">
+            <div className="seg">
+              <button type="button" className={form.visibility === 'public' ? 'on' : ''} onClick={() => setForm({ ...form, visibility: 'public' })}>공개</button>
+              <button type="button" className={form.visibility === 'private' ? 'on' : ''} onClick={() => setForm({ ...form, visibility: 'private' })}>비공개</button>
+            </div>
+          </Field>
+          {needsPublic && <p className="field-hint">비공개 작품은 회차를 업로드해도 나만 볼 수 있어요. 독자에게 보여 주려면 ‘공개’로 바꾸고 저장하세요.</p>}
+          <button type="submit" className="btn btn-primary btn-block" disabled={saving}>{saving ? '저장 중…' : '설정 저장'}</button>
+          <button type="button" className="btn btn-ghost btn-danger-text btn-block" onClick={removeWebtoon}>작품 삭제</button>
+        </form>
+
+        <section className="panel">
+          <h2>회차 관리</h2>
+          {data.episodes.length === 0 && <Empty title="아직 회차가 없어요" action={<button type="button" className="btn btn-primary" onClick={() => { setEpTitle('1화'); setNewEp(true); }}>1화 그리기</button>} />}
+          <ul className="manage-eps">
+            {data.episodes.map((ep) => (
+              <li key={ep.id}>
+                <div className="ep-thumb sm">{ep.thumbnailUrl ? <img src={ep.thumbnailUrl} alt="" /> : <span>{ep.number}</span>}</div>
+                <div className="ep-main">
+                  <strong>{epLabel(ep)}</strong>
+                  <span className="muted">
+                    <EpisodeStatus ep={ep} />{' '}
+                    {ep.status === 'published' && `${fmtDate(ep.publishedAt)} · 조회 ${fmtNum(ep.viewCount)} · 댓글 ${ep.commentCount}`}
+                    {ep.status === 'scheduled' && `${fmtDate(ep.publishAt, true)} 공개 예정`}
+                    {ep.status === 'draft' && `${ep.pageCount}장 · ${fmtDate(ep.updatedAt, true)} 저장`}
+                  </span>
+                </div>
+                <div className="row-gap">
+                  <Link className="btn btn-sm" to={`/projects/episodes/${ep.id}`}><Icon name="edit" size={14} /> 편집</Link>
+                  {ep.status !== 'draft' && <Link className="btn btn-sm btn-ghost" to={`/episodes/${ep.id}`}>보기</Link>}
+                  {ep.status === 'scheduled' && <button type="button" className="btn btn-sm btn-ghost" onClick={() => cancelSchedule(ep)}>예약 취소</button>}
+                  <button type="button" className="icon-btn" onClick={() => removeEpisode(ep)} aria-label="회차 삭제"><Icon name="trash" size={16} /></button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+
+      <Modal open={newEp} title="새 회차" onClose={() => setNewEp(false)}
+        footer={<><button type="button" className="btn" onClick={() => setNewEp(false)}>취소</button><button type="button" className="btn btn-primary" onClick={createEpisode} disabled={!epTitle.trim()}>편집기 열기</button></>}>
+        <form onSubmit={createEpisode}>
+          <Field label="회차 제목" htmlFor="ep-t"><input id="ep-t" className="input" maxLength={80} value={epTitle} onChange={(e) => setEpTitle(e.target.value)} /></Field>
+          <p className="field-hint">회차는 임시저장 상태로 만들어지고, 편집기에서 업로드할 때 즉시 공개하거나 예약할 수 있어요.</p>
+        </form>
+      </Modal>
+    </div>
+  );
+}

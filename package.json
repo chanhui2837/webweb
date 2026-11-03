@@ -1,0 +1,15 @@
+{
+  "name": "webweb",
+  "version": "1.0.0",
+  "private": true,
+  "description": "웹웹(WEBWEB) — 웹툰 & 일러스트 창작 플랫폼",
+  "engines": { "node": ">=18.18" },
+  "scripts": {
+    "install:all": "npm install --prefix server --include=dev && npm install --prefix client --include=dev",
+    "build": "npm run install:all && npm run build --prefix client",
+    "start": "npm start --prefix server",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "test": "npm test --prefix server"
+  }
+}

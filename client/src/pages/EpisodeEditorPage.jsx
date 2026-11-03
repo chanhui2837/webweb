@@ -4,6 +4,7 @@ import Editor from '../editor/Editor.jsx';
 import { canvasToBlobSafe, mergeDocs, renderRegion, sliceDoc } from '../editor/render.js';
 import { loadDoc, saveDocFull } from '../editor/docApi.js';
 import { api } from '../lib/api.js';
+import { IMAGE_ACCEPT, normalizeImageFile } from '../lib/imageFile.js';
 import { epLabel, fmtDate, kstInputValue } from '../lib/format.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -275,7 +276,7 @@ export default function EpisodeEditorPage() {
     e.target.value = '';
     if (!f) return;
     try {
-      const r = await api.upload('/uploads/image?kind=episode-thumb', f);
+      const r = await api.upload('/uploads/image?kind=episode-thumb', await normalizeImageFile(f, 2000));
       setPub((p) => ({ ...p, thumb: 'custom', thumbUrl: r.url }));
     } catch (err) { toast.error(err); }
   }
@@ -374,7 +375,7 @@ export default function EpisodeEditorPage() {
           <span className="field-label">회차 썸네일</span>
           <div className="seg">
             <button type="button" className={pub.thumb === 'auto' ? 'on' : ''} onClick={() => setPub({ ...pub, thumb: 'auto' })}>첫 장에서 자동 생성</button>
-            <label className={`seg-file ${pub.thumb === 'custom' ? 'on' : ''}`}>직접 올리기<input type="file" accept="image/*" hidden onChange={pickThumb} /></label>
+            <label className={`seg-file ${pub.thumb === 'custom' ? 'on' : ''}`}>직접 올리기<input type="file" accept={IMAGE_ACCEPT} hidden onChange={pickThumb} /></label>
           </div>
           {pub.thumb === 'custom' && pub.thumbUrl && <img className="thumb-preview" src={pub.thumbUrl} alt="썸네일 미리보기" />}
         </div>

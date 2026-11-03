@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import { IMAGE_ACCEPT, normalizeImageFile } from '../lib/imageFile.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { Avatar, Empty, Field, IllustCard, Spinner, WebtoonCard } from '../components/ui.jsx';
@@ -18,9 +19,8 @@ function Settings() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { toast.error('10MB 이하 이미지만 올릴 수 있어요.'); return; }
     try {
-      const r = await api.upload('/users/me/avatar', file);
+      const r = await api.upload('/users/me/avatar', await normalizeImageFile(file, 1600));
       setUser(r.user);
       toast.success('프로필 사진을 바꿨어요.');
       if (r.reward) toast.reward(r.reward);
@@ -62,7 +62,7 @@ function Settings() {
           <div className="row-gap">
             <button type="button" className="btn" onClick={() => fileRef.current.click()}>사진 변경</button>
             {user.avatarUrl && <button type="button" className="btn btn-ghost" onClick={removeAvatar}>삭제</button>}
-            <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={uploadAvatar} />
+            <input ref={fileRef} type="file" accept={IMAGE_ACCEPT} hidden onChange={uploadAvatar} />
           </div>
         </div>
         <form onSubmit={saveProfile}>

@@ -674,3 +674,37 @@ textarea.input { resize: vertical; line-height: 1.5; }
   .ed-tools button { width: 54px; padding: 6px 2px 4px; }
   .modal { max-height: calc(100dvh - 24px); }
 }
+
+/* ---------------- 표지·썸네일 선택 / 비율 조정 / 직접 그리기 ---------------- */
+.img-picker-actions { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; }
+.img-picker-actions .btn-sm { height: 30px; padding: 0 8px; font-size: 12.5px; }
+.crop-ratios { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.crop-ratios button { border: 1.5px solid var(--line); background: #fff; border-radius: 999px; padding: 5px 12px; font-weight: 700; font-size: 13px; }
+.crop-ratios button small { font-weight: 600; color: var(--cobalt); }
+.crop-ratios button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.crop-ratios button.on small { color: var(--marker); }
+.crop-wrap { width: 100%; display: flex; justify-content: center; }
+.crop-loading { padding: 60px 0; color: var(--ink-3); }
+.crop-stage { position: relative; overflow: hidden; background: #222; border-radius: 6px; touch-action: none; cursor: grab; user-select: none; box-shadow: 0 0 0 2px var(--ink); }
+.crop-stage:active { cursor: grabbing; }
+.crop-stage img { position: absolute; left: 0; top: 0; max-width: none; transform-origin: 0 0; pointer-events: none; }
+.crop-grid { position: absolute; inset: 0; pointer-events: none; background:
+  linear-gradient(to right, transparent calc(33.33% - .5px), rgba(255,255,255,.55) calc(33.33% - .5px), rgba(255,255,255,.55) calc(33.33% + .5px), transparent calc(33.33% + .5px), transparent calc(66.66% - .5px), rgba(255,255,255,.55) calc(66.66% - .5px), rgba(255,255,255,.55) calc(66.66% + .5px), transparent calc(66.66% + .5px)),
+  linear-gradient(to bottom, transparent calc(33.33% - .5px), rgba(255,255,255,.55) calc(33.33% - .5px), rgba(255,255,255,.55) calc(33.33% + .5px), transparent calc(33.33% + .5px), transparent calc(66.66% - .5px), rgba(255,255,255,.55) calc(66.66% - .5px), rgba(255,255,255,.55) calc(66.66% + .5px), transparent calc(66.66% + .5px)); }
+.crop-zoom { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.crop-zoom input { flex: 1; accent-color: var(--cobalt); }
+
+.draw-modal { position: fixed; inset: 0; z-index: 90; background: #e9ebf2; display: flex; flex-direction: column; height: var(--app-h, 100dvh); animation: fade .15s; }
+.draw-title { font-size: 16px; font-weight: 800; }
+.draw-pick { flex: 1; overflow-y: auto; padding: 32px 16px; display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; }
+.draw-pick h2 { font-size: 20px; font-weight: 850; }
+.draw-sizes { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; width: min(100%, 720px); }
+.draw-size { border: 1.5px solid var(--line); background: #fff; border-radius: var(--r); padding: 16px 10px 12px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.draw-size:hover { border-color: var(--ink); }
+.draw-size.rec { border-color: var(--ink); box-shadow: 3px 3px 0 var(--marker); }
+.draw-size-box { width: 60px; max-height: 80px; border: 2px solid var(--ink); background: var(--paper); border-radius: 3px; }
+.draw-size small { color: var(--ink-3); font-size: 12px; }
+@media (max-width: 560px) {
+  .draw-modal .ed-actions .btn-sm { flex: 1 1 0; }
+  .pickers { gap: 10px; }
+}

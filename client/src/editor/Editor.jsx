@@ -33,6 +33,7 @@ import {
 } from './render.js';
 import { saveDoc } from './docApi.js';
 import { api } from '../lib/api.js';
+import { IMAGE_ACCEPT, normalizeImageFile } from '../lib/imageFile.js';
 import { useToast } from '../context/ToastContext.jsx';
 
 const SWATCHES = ['#111111', '#555a6e', '#ffffff', '#2F4BFF', '#FF4F8B', '#FFD23F', '#21B573', '#FF7A1A', '#8E5CFF', '#9C6B3C'];
@@ -718,11 +719,9 @@ const Editor = forwardRef(function Editor({ data, docId, defaultSize, onDirtyCha
     const f = e.target.files?.[0];
     e.target.value = '';
     if (!f) return;
-    if (!/^image\/(png|jpeg|webp|gif)$/.test(f.type)) { toast.error('PNG, JPG, WEBP, GIF 이미지만 불러올 수 있어요.'); return; }
-    if (f.size > 10 * 1024 * 1024) { toast.error('이미지는 10MB 이하만 불러올 수 있어요.'); return; }
     try {
       toast.info('이미지를 올리는 중…');
-      const r = await api.upload('/uploads/image?kind=editor', f);
+      const r = await api.upload('/uploads/image?kind=editor', await normalizeImageFile(f, 4000));
       const img = await loadImage(r.url);
       if (!img) throw new Error('이미지를 불러오지 못했어요.');
       const d = docRef.current;
@@ -1230,7 +1229,7 @@ const Editor = forwardRef(function Editor({ data, docId, defaultSize, onDirtyCha
           <Ico d="M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15.5 9.5h.01" />
           <span>이미지</span>
         </button>
-        <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={importImage} />
+        <input ref={fileRef} type="file" accept={IMAGE_ACCEPT} hidden onChange={importImage} />
       </div>
 
       <div className="ed-center">

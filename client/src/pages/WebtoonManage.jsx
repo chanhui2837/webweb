@@ -4,30 +4,59 @@ import { api } from '../lib/api.js';
 import { GENRES, epLabel, fmtDate, fmtNum } from '../lib/format.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { Empty, EpisodeStatus, Field, Icon, Modal, Spinner } from '../components/ui.jsx';
+import ImageCropper from '../components/ImageCropper.jsx';
+import DrawImageModal from '../components/DrawImageModal.jsx';
+import { IMAGE_ACCEPT, normalizeImageFile } from '../lib/imageFile.js';
 
-function ImagePicker({ label, value, onChange, kind, ratio }) {
+/** 표지·썸네일 선택: 사진 고르기 → 비율 조정 / 직접 그리기 */
+function ImagePicker({ label, value, onChange, kind, ratio, cropRatio = 3 / 4, drawIndex = 0 }) {
   const ref = useRef(null);
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const [cropSrc, setCropSrc] = useState('');
+  const [drawing, setDrawing] = useState(false);
+
   async function pick(e) {
     const f = e.target.files?.[0];
     e.target.value = '';
     if (!f) return;
-    if (f.size > 10 * 1024 * 1024) { toast.error('이미지는 10MB 이하만 올릴 수 있어요.'); return; }
+    try {
+      const file = await normalizeImageFile(f);
+      setCropSrc(URL.createObjectURL(file));
+    } catch (err) { toast.error(err); }
+  }
+  async function upload(blob) {
     setBusy(true);
     try {
-      const r = await api.upload(`/uploads/image?kind=${kind}`, f);
+      const r = await api.upload(`/uploads/image?kind=${kind}`, blob, `${kind}.jpg`);
       onChange(r.url);
-    } catch (err) { toast.error(err); } finally { setBusy(false); }
+      toast.success(`${label.split(' ')[0]}을(를) 넣었어요. ‘설정 저장’을 눌러야 반영돼요.`);
+    } finally { setBusy(false); }
   }
+  function closeCrop() {
+    if (cropSrc.startsWith('blob:')) URL.revokeObjectURL(cropSrc);
+    setCropSrc('');
+  }
+
   return (
     <div className="img-picker">
       <span className="img-picker-label">{label}</span>
-      <button type="button" className="img-picker-box" style={{ aspectRatio: ratio }} onClick={() => ref.current.click()} disabled={busy}>
-        {value ? <img src={value} alt="" className="contain" /> : <span>{busy ? '올리는 중…' : '이미지 선택'}</span>}
+      <button type="button" className="img-picker-box" style={{ aspectRatio: ratio }} onClick={() => ref.current.click()} disabled={busy} aria-label={`${label} 사진 선택`}>
+        {value ? <img src={value} alt="" className="contain" /> : <span>{busy ? '올리는 중…' : '사진 선택'}</span>}
       </button>
-      <input ref={ref} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={pick} />
-      {value && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange('')}>지우기</button>}
+      <input ref={ref} type="file" accept={IMAGE_ACCEPT} hidden onChange={pick} />
+      <div className="img-picker-actions">
+        <button type="button" className="btn btn-sm" onClick={() => ref.current.click()} disabled={busy}><Icon name="image" size={14} /> 사진</button>
+        <button type="button" className="btn btn-sm" onClick={() => setDrawing(true)} disabled={busy}><Icon name="brush" size={14} /> 그리기</button>
+        {value && <button type="button" className="btn btn-sm btn-ghost" onClick={() => setCropSrc(value)} disabled={busy}>비율 조정</button>}
+        {value && <button type="button" className="btn btn-sm btn-ghost" onClick={() => onChange('')} disabled={busy}>지우기</button>}
+      </div>
+      <ImageCropper open={!!cropSrc} src={cropSrc} title={`${label.split(' ')[0]} 비율 조정`} defaultRatio={cropRatio}
+        onCancel={closeCrop}
+        onDone={async (blob) => { await upload(blob); closeCrop(); }} />
+      <DrawImageModal open={drawing} title={`${label.split(' ')[0]} 그리기`} defaultIndex={drawIndex}
+        onCancel={() => setDrawing(false)}
+        onDone={async (blob) => { await upload(blob); setDrawing(false); }} />
     </div>
   );
 }
@@ -108,8 +137,8 @@ export default function WebtoonManage() {
         <form className="panel" onSubmit={save}>
           <h2>작품 설정</h2>
           <div className="pickers">
-            <ImagePicker label="표지 (세로형)" kind="cover" ratio="3 / 4" value={form.coverUrl} onChange={(v) => setForm({ ...form, coverUrl: v })} />
-            <ImagePicker label="썸네일 (표지 없을 때)" kind="thumbnail" ratio="3 / 4" value={form.thumbnailUrl} onChange={(v) => setForm({ ...form, thumbnailUrl: v })} />
+            <ImagePicker label="표지 (세로형)" kind="cover" ratio="3 / 4" cropRatio={3 / 4} drawIndex={0} value={form.coverUrl} onChange={(v) => setForm({ ...form, coverUrl: v })} />
+            <ImagePicker label="썸네일 (표지 없을 때)" kind="thumbnail" ratio="3 / 4" cropRatio={3 / 4} drawIndex={0} value={form.thumbnailUrl} onChange={(v) => setForm({ ...form, thumbnailUrl: v })} />
           </div>
           <Field label="제목" htmlFor="m-t"><input id="m-t" className="input" maxLength={60} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
           <Field label="장르">

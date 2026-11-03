@@ -140,19 +140,29 @@ export function Pager({ page, pages, onPage }) {
 
 export function Modal({ open, title, onClose, children, footer, wide = false }) {
   const ref = useRef(null);
+  // onClose 는 부모가 렌더링될 때마다 새 함수가 되므로 ref 에 담아 둔다.
+  // (effect 의존성에 넣으면 글자를 입력할 때마다 effect 가 다시 실행되어 포커스가 닫기 버튼으로 튀는 버그가 생김)
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    const onKey = (e) => { if (e.key === 'Escape') onCloseRef.current?.(); };
     document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    setTimeout(() => ref.current?.querySelector('input,textarea,select,button')?.focus(), 30);
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
-  }, [open, onClose]);
+    // 모달이 열릴 때 한 번만, 본문의 입력칸을 먼저 포커스 (없으면 대화상자 자체)
+    const t = setTimeout(() => {
+      const el = ref.current;
+      if (!el || el.contains(document.activeElement)) return;
+      const field = el.querySelector('.modal-body input:not([type=hidden]):not([type=radio]):not([type=checkbox]), .modal-body textarea, .modal-body select');
+      (field || el).focus();
+    }, 30);
+    return () => { clearTimeout(t); document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [open]);
   if (!open) return null;
   return (
     <div className="modal-back" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
-      <div className={`modal ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
+      <div className={`modal ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} ref={ref} tabIndex={-1}>
         <div className="modal-head">
           <h2>{title}</h2>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기"><Icon name="x" /></button>

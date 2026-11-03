@@ -49,7 +49,7 @@ export default function WebtoonDetail() {
     <div className="page">
       <section className="wt-hero">
         <div className="wt-cover">
-          {w.coverUrl || w.thumbnailUrl ? <img src={w.coverUrl || w.thumbnailUrl} alt="" /> : <div className="thumb-empty big">{w.title.slice(0, 2)}</div>}
+          {w.coverUrl || w.thumbnailUrl ? <img src={w.coverUrl || w.thumbnailUrl} alt={`${w.title} 표지`} /> : <div className="thumb-empty big">{w.title.slice(0, 2)}</div>}
         </div>
         <div className="wt-info">
           <span className="genre-chip static">{w.genre}</span>

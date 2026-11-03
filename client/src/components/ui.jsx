@@ -58,11 +58,22 @@ export function Icon({ name, size = 18 }) {
   );
 }
 
+/** 표지를 자르지 않고 전부 보여 준다. 비율이 다른 빈 공간은 같은 그림을 흐리게 깔아 채움 */
+export function CoverImage({ src, alt = '', fallback }) {
+  if (!src) return <div className="thumb-empty">{fallback}</div>;
+  return (
+    <span className="cover-img">
+      <img className="cover-img-bg" src={src} alt="" aria-hidden="true" loading="lazy" />
+      <img className="cover-img-fg" src={src} alt={alt} loading="lazy" />
+    </span>
+  );
+}
+
 export function WebtoonCard({ w, showStatus = false, to }) {
   return (
     <Link to={to || `/webtoons/${w.id}`} className="wcard">
-      <div className="wcard-thumb">
-        {w.thumbnailUrl ? <img src={w.thumbnailUrl} alt="" loading="lazy" /> : <div className="thumb-empty">{w.title.slice(0, 2)}</div>}
+      <div className="wcard-thumb cover">
+        <CoverImage src={w.coverUrl || w.thumbnailUrl} fallback={w.title.slice(0, 2)} />
         <span className="genre-chip">{w.genre}</span>
         {showStatus && (
           <span className={`status-chip ${w.visibility === 'public' ? 'on' : ''}`}>

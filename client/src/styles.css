@@ -204,7 +204,7 @@ textarea.input { resize: vertical; line-height: 1.5; }
 .section-head h2 { font-size: 20px; font-weight: 800; }
 .section-more { font-size: 14px; font-weight: 700; color: var(--ink-3); }
 .section-more:hover { color: var(--cobalt); }
-.rail { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(160px, 1fr); gap: 16px; overflow-x: auto; padding: 4px 4px 12px; scroll-snap-type: x proximity; }
+.rail { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 1fr); gap: 16px; overflow-x: auto; padding: 4px 4px 12px; scroll-snap-type: x proximity; }
 .rail > * { scroll-snap-align: start; }
 @media (min-width: 900px) { .rail { grid-auto-columns: calc((100% - 16px * 5) / 6); } }
 .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 22px 16px; }
@@ -212,6 +212,10 @@ textarea.input { resize: vertical; line-height: 1.5; }
 .wcard { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .wcard-thumb { position: relative; aspect-ratio: 4 / 3; border-radius: var(--r-sm); overflow: hidden; border: 1.5px solid var(--ink); background: var(--line-2); }
 .wcard-thumb.square { aspect-ratio: 1; }
+.wcard-thumb.cover { aspect-ratio: 3 / 4; }
+.cover-img { position: absolute; inset: 0; display: block; overflow: hidden; background: var(--line-2); }
+.cover-img-bg { position: absolute; inset: -12%; width: 124% !important; height: 124% !important; object-fit: cover; filter: blur(14px) saturate(1.1); opacity: .55; transform: none !important; }
+.cover-img-fg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .wcard-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform .35s var(--ease); }
 .wcard:hover .wcard-thumb img { transform: scale(1.04); }
 .wcard:hover .wcard-title { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
@@ -284,8 +288,8 @@ textarea.input { resize: vertical; line-height: 1.5; }
 
 /* ---------------- 웹툰 상세 ---------------- */
 .wt-hero { display: grid; grid-template-columns: 300px 1fr; gap: 32px; margin-bottom: 36px; align-items: start; }
-.wt-cover { border: 2px solid var(--ink); border-radius: var(--r); overflow: hidden; box-shadow: 6px 6px 0 var(--marker); background: var(--line-2); aspect-ratio: 3 / 4; }
-.wt-cover img { width: 100%; height: 100%; object-fit: cover; }
+.wt-cover { border: 2px solid var(--ink); border-radius: var(--r); overflow: hidden; box-shadow: 6px 6px 0 var(--marker); background: var(--line-2); align-self: start; }
+.wt-cover img { width: 100%; height: auto; max-height: 560px; object-fit: contain; display: block; margin: 0 auto; }
 .wt-info h1 { font-size: clamp(26px, 3.5vw, 38px); font-weight: 900; margin-bottom: 10px; }
 .wt-author { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 14px; }
 .wt-author:hover { color: var(--cobalt); }
@@ -368,6 +372,7 @@ textarea.input { resize: vertical; line-height: 1.5; }
 .img-picker-box { width: 100%; border: 1.5px dashed var(--ink-3); border-radius: var(--r-sm); background: var(--paper); display: grid; place-items: center; overflow: hidden; padding: 0; color: var(--ink-3); font-size: 13px; font-weight: 600; }
 .img-picker-box:hover { border-color: var(--cobalt); color: var(--cobalt); }
 .img-picker-box img { width: 100%; height: 100%; object-fit: cover; }
+.img-picker-box img.contain { object-fit: contain; background: #fff; }
 .manage-eps { list-style: none; padding: 0; margin: 0; }
 .manage-eps li { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
 .manage-eps li:first-child { border-top: 0; }
@@ -487,8 +492,8 @@ textarea.input { resize: vertical; line-height: 1.5; }
 /* ==========================================================================
    편집기
    ========================================================================== */
-.editor-page { height: 100vh; height: 100dvh; display: flex; flex-direction: column; background: #e9ebf2; overflow: hidden; }
-.ed-header { display: flex; align-items: center; gap: 10px; padding: 0 12px; height: 58px; background: #fff; border-bottom: 1.5px solid var(--ink); flex: none; }
+.editor-page { height: 100vh; height: 100dvh; height: var(--app-h, 100dvh); display: flex; flex-direction: column; background: #e9ebf2; overflow: hidden; }
+.ed-header { display: flex; align-items: center; gap: 10px; padding: 0 12px; padding-top: env(safe-area-inset-top); min-height: 58px; background: #fff; border-bottom: 1.5px solid var(--ink); flex: none; }
 .ed-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .ed-title span { font-size: 12px; color: var(--ink-3); display: flex; gap: 6px; align-items: center; white-space: nowrap; overflow: hidden; }
 .ed-title input { border: 0; font-weight: 800; font-size: 16px; padding: 0; background: transparent; min-width: 0; }
@@ -498,7 +503,7 @@ textarea.input { resize: vertical; line-height: 1.5; }
 .ed-actions { display: flex; gap: 6px; }
 .ed-pages-btn { display: none; }
 .ed-progress { background: var(--marker); text-align: center; font-weight: 700; font-size: 13.5px; padding: 6px; border-bottom: 1.5px solid var(--ink); }
-.ed-body { flex: 1; display: flex; min-height: 0; }
+.ed-body { flex: 1; display: flex; min-height: 0; position: relative; }
 .ed-main { flex: 1; min-width: 0; display: flex; }
 .ed-loading { margin: auto; color: var(--ink-3); font-weight: 600; }
 
@@ -602,7 +607,7 @@ textarea.input { resize: vertical; line-height: 1.5; }
    반응형
    ========================================================================== */
 @media (max-width: 1024px) {
-  .ed-panel { position: fixed; right: 0; top: 58px; bottom: 0; z-index: 50; transform: translateX(100%); transition: transform .22s var(--ease); box-shadow: -8px 0 24px rgba(0,0,0,.12); }
+  .ed-panel { position: absolute; right: 0; top: 0; bottom: 0; z-index: 50; transform: translateX(100%); transition: transform .22s var(--ease); box-shadow: -8px 0 24px rgba(0,0,0,.12); }
   .ed-panel.open { transform: none; }
   .ed-panel-toggle { display: inline-block; background: var(--marker); border-color: var(--ink); }
   .ed-panel-close { display: block; }
@@ -636,13 +641,13 @@ textarea.input { resize: vertical; line-height: 1.5; }
   .editor { flex-direction: column-reverse; }
   .ed-tools { width: auto; flex-direction: row; overflow-x: auto; padding: 4px 6px calc(4px + env(safe-area-inset-bottom)); }
   .ed-tools button { flex: none; width: 58px; }
-  .ed-pages { position: fixed; left: 0; top: 58px; bottom: 0; z-index: 50; width: 150px; transform: translateX(-100%); transition: transform .22s var(--ease); box-shadow: 8px 0 24px rgba(0,0,0,.12); }
+  .ed-pages { position: absolute; left: 0; top: 0; bottom: 0; z-index: 50; width: 168px; transform: translateX(-100%); transition: transform .22s var(--ease); box-shadow: 8px 0 24px rgba(0,0,0,.12); }
   .ed-pages.open { transform: none; }
   .ed-pages-btn { display: inline-flex; }
-  .ed-save, .ed-header > svg { display: none; }
+  .ed-header > svg { display: none; }
   .ed-header { gap: 6px; padding: 0 6px; }
   .ed-actions .btn-sm { padding: 0 8px; }
-  .ed-panel { top: 58px; width: min(88vw, 320px); }
+  .ed-panel { width: min(90vw, 330px); }
 }
 @media (max-width: 560px) {
   :root { --gutter: 14px; }
@@ -656,6 +661,16 @@ textarea.input { resize: vertical; line-height: 1.5; }
   .cookie-balance strong { font-size: 32px; }
   .ep-thumb { width: 84px; }
   .ed-title span { display: none; }
-  .ed-actions { gap: 4px; }
+  .ed-header { flex-wrap: wrap; row-gap: 6px; padding: 6px 8px 8px; padding-top: calc(6px + env(safe-area-inset-top)); }
+  .ed-title { flex: 1 1 0; }
+  .ed-title input { font-size: 16px; width: 100%; }
+  .ed-save { display: inline; font-size: 11.5px; max-width: 34vw; overflow: hidden; text-overflow: ellipsis; }
+  .ed-actions { order: 3; width: 100%; gap: 6px; }
+  .ed-actions .btn-sm { flex: 1 1 0; min-width: 0; padding: 0 4px; height: 36px; font-size: 13px; }
+  .ed-actions .btn-ghost { flex: 0 0 40px; }
+  .ed-lbl, .ed-z100, .ed-size { display: none; }
+  .ed-topline { flex-wrap: nowrap; gap: 4px; padding: 5px 8px; }
+  .ed-topline .ed-mini { padding: 5px 9px; font-size: 13px; }
+  .ed-tools button { width: 54px; padding: 6px 2px 4px; }
   .modal { max-height: calc(100dvh - 24px); }
 }

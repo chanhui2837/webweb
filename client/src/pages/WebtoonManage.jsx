@@ -24,7 +24,7 @@ function ImagePicker({ label, value, onChange, kind, ratio }) {
     <div className="img-picker">
       <span className="img-picker-label">{label}</span>
       <button type="button" className="img-picker-box" style={{ aspectRatio: ratio }} onClick={() => ref.current.click()} disabled={busy}>
-        {value ? <img src={value} alt="" /> : <span>{busy ? '올리는 중…' : '이미지 선택'}</span>}
+        {value ? <img src={value} alt="" className="contain" /> : <span>{busy ? '올리는 중…' : '이미지 선택'}</span>}
       </button>
       <input ref={ref} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={pick} />
       {value && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange('')}>지우기</button>}
@@ -108,8 +108,8 @@ export default function WebtoonManage() {
         <form className="panel" onSubmit={save}>
           <h2>작품 설정</h2>
           <div className="pickers">
-            <ImagePicker label="표지" kind="cover" ratio="3 / 4" value={form.coverUrl} onChange={(v) => setForm({ ...form, coverUrl: v })} />
-            <ImagePicker label="썸네일" kind="thumbnail" ratio="4 / 3" value={form.thumbnailUrl} onChange={(v) => setForm({ ...form, thumbnailUrl: v })} />
+            <ImagePicker label="표지 (세로형)" kind="cover" ratio="3 / 4" value={form.coverUrl} onChange={(v) => setForm({ ...form, coverUrl: v })} />
+            <ImagePicker label="썸네일 (표지 없을 때)" kind="thumbnail" ratio="3 / 4" value={form.thumbnailUrl} onChange={(v) => setForm({ ...form, thumbnailUrl: v })} />
           </div>
           <Field label="제목" htmlFor="m-t"><input id="m-t" className="input" maxLength={60} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
           <Field label="장르">
@@ -126,6 +126,7 @@ export default function WebtoonManage() {
               <button type="button" className={form.visibility === 'private' ? 'on' : ''} onClick={() => setForm({ ...form, visibility: 'private' })}>비공개</button>
             </div>
           </Field>
+          <p className="field-hint">목록과 홈 화면에는 세로형 표지가 잘리지 않고 그대로 보여요. 권장 비율 3:4 또는 2:3 (예: 900×1200).</p>
           {needsPublic && <p className="field-hint">비공개 작품은 회차를 업로드해도 나만 볼 수 있어요. 독자에게 보여 주려면 ‘공개’로 바꾸고 저장하세요.</p>}
           <button type="submit" className="btn btn-primary btn-block" disabled={saving}>{saving ? '저장 중…' : '설정 저장'}</button>
           <button type="button" className="btn btn-ghost btn-danger-text btn-block" onClick={removeWebtoon}>작품 삭제</button>

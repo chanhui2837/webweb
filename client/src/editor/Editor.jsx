@@ -1235,15 +1235,15 @@ const Editor = forwardRef(function Editor({ data, docId, defaultSize, onDirtyCha
 
       <div className="ed-center">
         <div className="ed-topline">
-          <button type="button" className="ed-mini" onClick={undo} disabled={h.index <= 0} title="실행 취소 (Ctrl+Z)">↶ 실행 취소</button>
-          <button type="button" className="ed-mini" onClick={redo} disabled={h.index >= h.list.length - 1} title="다시 실행 (Ctrl+Shift+Z)">↷ 다시 실행</button>
+          <button type="button" className="ed-mini" onClick={undo} disabled={h.index <= 0} title="실행 취소 (Ctrl+Z)" aria-label="실행 취소">↶<span className="ed-lbl"> 실행 취소</span></button>
+          <button type="button" className="ed-mini" onClick={redo} disabled={h.index >= h.list.length - 1} title="다시 실행 (Ctrl+Shift+Z)" aria-label="다시 실행">↷<span className="ed-lbl"> 다시 실행</span></button>
           <span className="ed-spacer" />
           <button type="button" className="ed-mini" onClick={() => setZoom((z) => z / 1.25)} aria-label="축소">−</button>
           <button type="button" className="ed-mini ed-zoom" onClick={fitZoom} title="화면 너비에 맞추기">{Math.round(zoom * 100)}%</button>
           <button type="button" className="ed-mini" onClick={() => setZoom((z) => z * 1.25)} aria-label="확대">+</button>
-          <button type="button" className="ed-mini" onClick={() => setZoom(1)}>100%</button>
+          <button type="button" className="ed-mini ed-z100" onClick={() => setZoom(1)}>100%</button>
           {d && <span className="ed-size">{d.width}×{d.height.toLocaleString()}</span>}
-          <button type="button" className="ed-mini ed-panel-toggle" onClick={() => setPanelOpen((v) => !v)}>{panelOpen ? '패널 닫기' : '속성·레이어'}</button>
+          <button type="button" className="ed-mini ed-panel-toggle" onClick={() => setPanelOpen((v) => !v)}>{panelOpen ? '닫기' : '속성·레이어'}</button>
         </div>
         <div className="ed-viewport">
           <div className="ed-scroller" ref={scrollRef}>

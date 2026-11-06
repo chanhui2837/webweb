@@ -47,13 +47,16 @@ export default function WebtoonDetail() {
 
   return (
     <div className="page">
-      <WebtoonBanner w={w} tagline={w.genre}>
-        <Link to={`/u/${w.author.username}`} className="wt-banner-author">{w.author.nickname}</Link>
-        <p className="wt-banner-stats">
+      <WebtoonBanner w={w} />
+      <div className="wt-titlebox">
+        <span className="genre-chip static">{w.genre}</span>
+        <h1>{w.title}</h1>
+        <p className="wt-titlebox-meta">
+          <Link to={`/u/${w.author.username}`}>{w.author.nickname}</Link>
           <span><Icon name="heart" size={13} /> {fmtNum(w.likeCount)}</span>
-          <span>· 관심 {fmtNum(w.bookmarkCount)}</span>
+          <span>관심 {fmtNum(w.bookmarkCount)}</span>
         </p>
-      </WebtoonBanner>
+      </div>
 
       <section className="wt-under">
         <div className="wt-main-actions">
@@ -65,7 +68,6 @@ export default function WebtoonDetail() {
             : <span className="btn btn-lg btn-primary is-disabled" aria-disabled="true">공개된 회차 없음</span>}
         </div>
         <div className="wt-info">
-          <Link to={`/u/${w.author.username}`} className="wt-author"><Avatar user={w.author} size={28} /> {w.author.nickname}</Link>
           {w.description && <p className="wt-desc">{w.description}</p>}
           <div className="wt-stats">
             <span><Icon name="eye" size={15} /> 조회 {fmtNum(w.viewCount)}</span>

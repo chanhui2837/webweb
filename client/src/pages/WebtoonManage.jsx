@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { GENRES, epLabel, fmtDate, fmtNum } from '../lib/format.js';
 import { useToast } from '../context/ToastContext.jsx';
-import { BANNER_COLORS, DEFAULT_BANNER_COLOR, Empty, EpisodeStatus, Field, Icon, Modal, Spinner, WebtoonBanner, sampleEdgeColor } from '../components/ui.jsx';
+import { BANNER_RATIO, Empty, EpisodeStatus, Field, Icon, Modal, Spinner, WebtoonBanner } from '../components/ui.jsx';
 import ImageCropper, { BANNER_RATIOS } from '../components/ImageCropper.jsx';
 import DrawImageModal, { BANNER_DRAW_SIZES } from '../components/DrawImageModal.jsx';
 import { IMAGE_ACCEPT, normalizeImageFile } from '../lib/imageFile.js';
@@ -72,47 +72,19 @@ function ImagePicker({ label, value, onChange, kind, ratio, cropRatio = 3 / 4, r
   );
 }
 
-/** 썸네일 = 작품 상단 배너. 배경색 띠 위에 썸네일 그림이 떠 있는 형태 (네이버 웹툰 작품 홈처럼) */
+/** 썸네일 = 작품 상단 배너. 사진이 배너(가로 3:1) 전체를 꽉 채운다 */
 function BannerPicker({ form, setForm }) {
-  const toast = useToast();
-  const [picking, setPicking] = useState(false);
-  const color = form.bannerColor || '';
-  const setColor = (c) => setForm((f) => ({ ...f, bannerColor: c }));
-  const shown = form.thumbnailUrl || form.coverUrl;
-
-  async function autoColor() {
-    if (!shown) return;
-    setPicking(true);
-    const c = await sampleEdgeColor(shown);
-    setPicking(false);
-    if (c) { setColor(c); toast.success('썸네일 가장자리 색으로 배경을 맞췄어요.'); } else toast.error('이 그림에서는 색을 뽑지 못했어요. 직접 골라 주세요.');
-  }
-
   return (
     <div className="banner-picker">
-      <ImagePicker label="썸네일 (작품 상단 배너)" kind="thumbnail" cropRatio={0} ratios={BANNER_RATIOS} keepAlpha
-        drawIndex={0} drawSizes={BANNER_DRAW_SIZES} drawHint="배경이 투명한 상태로 시작해요. 캐릭터만 그리면 아래에서 고른 배경색 위에 떠 보여요."
+      <ImagePicker label="썸네일 (작품 상단 배너 · 가로 3:1)" kind="thumbnail" cropRatio={BANNER_RATIO} ratios={BANNER_RATIOS} keepAlpha
+        drawIndex={0} drawSizes={BANNER_DRAW_SIZES}
         value={form.thumbnailUrl} onChange={(v) => setForm((f) => ({ ...f, thumbnailUrl: v }))}
         preview={(
-          <WebtoonBanner preview w={{ title: form.title }} imageUrl={shown} color={color || DEFAULT_BANNER_COLOR}
-            tagline={form.description ? form.description.split('\n')[0].slice(0, 40) : ''}>
-            {!form.thumbnailUrl && <p className="wt-banner-note">{form.coverUrl ? '썸네일이 없어서 표지를 대신 보여 주고 있어요' : '눌러서 썸네일 올리기'}</p>}
+          <WebtoonBanner preview w={{ title: form.title }} imageUrl={form.thumbnailUrl} fallbackUrl={form.coverUrl}>
+            {!form.thumbnailUrl && <span className="wt-banner-note">{form.coverUrl ? '썸네일이 없어서 표지를 대신 보여 주고 있어요 · 눌러서 썸네일 올리기' : '눌러서 썸네일 올리기'}</span>}
           </WebtoonBanner>
         )} />
-      <div className="banner-colors">
-        <span className="img-picker-label">배너 배경색</span>
-        <div className="banner-swatches" role="radiogroup" aria-label="배너 배경색">
-          <button type="button" role="radio" aria-checked={!color} className={`banner-sw auto ${!color ? 'on' : ''}`} onClick={() => setColor('')} title="기본색">기본</button>
-          {BANNER_COLORS.map((c) => (
-            <button key={c} type="button" role="radio" aria-checked={color === c} className={`banner-sw ${color === c ? 'on' : ''}`} style={{ background: c }} onClick={() => setColor(c)} aria-label={`배경색 ${c}`} />
-          ))}
-          <label className="banner-sw custom" title="직접 고르기">
-            <input type="color" value={color || DEFAULT_BANNER_COLOR} onChange={(e) => setColor(e.target.value)} aria-label="배경색 직접 고르기" />
-          </label>
-          <button type="button" className="btn btn-sm btn-ghost" onClick={autoColor} disabled={!shown || picking}>{picking ? '색 뽑는 중…' : '그림에 맞추기'}</button>
-        </div>
-        <p className="field-hint">썸네일은 작품 페이지 맨 위 배너에 떠서 보여요. 배경이 투명한 PNG(캐릭터만 있는 그림)를 올리면 고른 배경색 위에 깔끔하게 떠 보여요. 사각형 그림이면 ‘그림에 맞추기’로 배경색을 그림 가장자리와 맞춰 보세요.</p>
-      </div>
+      <p className="field-hint">썸네일은 작품 페이지 맨 위 배너를 꽉 채워서 보여요. 가로 3:1 비율(예: 1500×500)로 맞추면 잘리는 부분 없이 그대로 들어가요. 사진을 고르면 3:1로 자르는 창이 열려요.</p>
     </div>
   );
 }

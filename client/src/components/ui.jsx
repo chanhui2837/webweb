@@ -84,24 +84,29 @@ export function isDarkColor(hex) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.36;
 }
 
-export function WebtoonBanner({ w, imageUrl, color, tagline, children, preview = false }) {
-  const bg = color || w.bannerColor || DEFAULT_BANNER_COLOR;
-  const src = imageUrl !== undefined ? imageUrl : w.thumbnailUrl;
-  const dark = isDarkColor(bg);
+/** 배너 비율 (가로:세로). 썸네일은 이 비율로 잘라 올리면 배너를 꽉 채운다 */
+export const BANNER_RATIO = 3;
+
+/**
+ * 작품 상단 배너: 썸네일 사진이 배너 전체를 꽉 채운다.
+ * 썸네일이 없으면 표지를 흐리게 깔고 가운데에 표지 전체를 보여 준다.
+ */
+export function WebtoonBanner({ w, imageUrl, fallbackUrl, preview = false, children }) {
+  const own = imageUrl !== undefined ? imageUrl : w.ownThumbnailUrl;
+  const fb = fallbackUrl !== undefined ? fallbackUrl : (w.coverUrl || w.autoThumbnailUrl || '');
   return (
-    <div className={`wt-banner ${dark ? 'dark' : ''} ${preview ? 'preview' : ''}`} style={{ '--banner-bg': bg }}>
-      <div className="wt-banner-inner">
-        <div className="wt-banner-text">
-          {tagline && <p className="wt-banner-tagline">{tagline}</p>}
-          {preview
-            ? <p className="wt-banner-title">{w.title || '작품 제목'}</p>
-            : <h1 className="wt-banner-title">{w.title || '작품 제목'}</h1>}
-          {children}
-        </div>
-        <div className="wt-banner-art">
-          {src ? <img src={src} alt={preview ? '' : `${w.title} 썸네일`} /> : <span className="wt-banner-empty">{(w.title || '웹웹').slice(0, 2)}</span>}
-        </div>
-      </div>
+    <div className={`wt-banner ${preview ? 'preview' : ''}`} style={{ '--banner-bg': w.bannerColor || DEFAULT_BANNER_COLOR, aspectRatio: `${BANNER_RATIO} / 1` }}>
+      {own ? (
+        <img className="wt-banner-img" src={own} alt={preview ? '' : `${w.title} 썸네일`} />
+      ) : fb ? (
+        <>
+          <img className="wt-banner-blur" src={fb} alt="" aria-hidden="true" />
+          <img className="wt-banner-fit" src={fb} alt={preview ? '' : `${w.title} 표지`} />
+        </>
+      ) : (
+        <span className="wt-banner-empty">{(w.title || '웹웹').slice(0, 2)}</span>
+      )}
+      {children}
     </div>
   );
 }

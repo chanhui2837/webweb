@@ -13,6 +13,8 @@ const webtoonSchema = new Schema(
     description: { type: String, default: '', maxlength: 2000 },
     coverUrl: { type: String, default: '' },
     thumbnailUrl: { type: String, default: '' },
+    // 작품 상세 상단 배너(썸네일) 배경색 — 네이버 웹툰처럼 색 배경 위에 썸네일이 떠 있는 형태
+    bannerColor: { type: String, default: '' },
     // 표지/썸네일이 없을 때 쓰는 최신 회차 썸네일 (자동)
     autoThumbnailUrl: { type: String, default: '' },
     visibility: { type: String, enum: ['public', 'private'], default: 'private' },

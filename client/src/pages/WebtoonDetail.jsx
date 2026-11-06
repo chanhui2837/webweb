@@ -4,7 +4,7 @@ import { api } from '../lib/api.js';
 import { epLabel, fmtDate, fmtNum, untilText } from '../lib/format.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
-import { Avatar, Empty, Icon, Spinner } from '../components/ui.jsx';
+import { Avatar, Empty, Icon, Spinner, WebtoonBanner } from '../components/ui.jsx';
 import ReportButton from '../components/ReportButton.jsx';
 
 export default function WebtoonDetail() {
@@ -47,13 +47,24 @@ export default function WebtoonDetail() {
 
   return (
     <div className="page">
-      <section className="wt-hero">
-        <div className="wt-cover">
-          {w.coverUrl || w.thumbnailUrl ? <img src={w.coverUrl || w.thumbnailUrl} alt={`${w.title} 표지`} /> : <div className="thumb-empty big">{w.title.slice(0, 2)}</div>}
+      <WebtoonBanner w={w} tagline={w.genre}>
+        <Link to={`/u/${w.author.username}`} className="wt-banner-author">{w.author.nickname}</Link>
+        <p className="wt-banner-stats">
+          <span><Icon name="heart" size={13} /> {fmtNum(w.likeCount)}</span>
+          <span>· 관심 {fmtNum(w.bookmarkCount)}</span>
+        </p>
+      </WebtoonBanner>
+
+      <section className="wt-under">
+        <div className="wt-main-actions">
+          <button type="button" className={`btn btn-lg ${viewer.bookmarked ? 'btn-on' : ''}`} onClick={toggleBookmark} aria-pressed={viewer.bookmarked}>
+            <Icon name="bookmark" size={16} /> {viewer.bookmarked ? '관심 웹툰' : '관심 등록'}
+          </button>
+          {firstPublic
+            ? <Link className="btn btn-lg btn-primary" to={`/episodes/${firstPublic.id}`}>첫 화 보기</Link>
+            : <span className="btn btn-lg btn-primary is-disabled" aria-disabled="true">공개된 회차 없음</span>}
         </div>
         <div className="wt-info">
-          <span className="genre-chip static">{w.genre}</span>
-          <h1>{w.title}</h1>
           <Link to={`/u/${w.author.username}`} className="wt-author"><Avatar user={w.author} size={28} /> {w.author.nickname}</Link>
           {w.description && <p className="wt-desc">{w.description}</p>}
           <div className="wt-stats">
@@ -62,14 +73,10 @@ export default function WebtoonDetail() {
             <span><Icon name="bookmark" size={15} /> 관심 {fmtNum(w.bookmarkCount)}</span>
           </div>
           <div className="wt-actions">
-            {firstPublic && <Link className="btn btn-primary" to={`/episodes/${firstPublic.id}`}>첫 화 보기</Link>}
-            <button type="button" className={`btn ${viewer.bookmarked ? 'btn-on' : ''}`} onClick={toggleBookmark} aria-pressed={viewer.bookmarked}>
-              <Icon name="bookmark" size={16} /> {viewer.bookmarked ? '관심 웹툰' : '관심 등록'}
+            <button type="button" className={`btn btn-sm ${viewer.liked ? 'btn-like-on' : ''}`} onClick={toggleLike} aria-pressed={viewer.liked}>
+              <Icon name="heart" size={15} /> {viewer.liked ? '좋아요 취소' : '좋아요'}
             </button>
-            <button type="button" className={`btn ${viewer.liked ? 'btn-like-on' : ''}`} onClick={toggleLike} aria-pressed={viewer.liked}>
-              <Icon name="heart" size={16} /> {viewer.liked ? '좋아요 취소' : '좋아요'}
-            </button>
-            {viewer.isOwner && <Link className="btn" to={`/projects/webtoons/${w.id}`}><Icon name="edit" size={16} /> 작품 관리</Link>}
+            {viewer.isOwner && <Link className="btn btn-sm" to={`/projects/webtoons/${w.id}`}><Icon name="edit" size={15} /> 작품 관리</Link>}
             {user && !viewer.isOwner && <ReportButton targetType="webtoon" targetId={w.id} />}
           </div>
         </div>

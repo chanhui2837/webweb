@@ -10,12 +10,22 @@ export const RATIOS = [
   { v: 0, l: '원본' },
 ];
 
+/** 썸네일(배너)용: 캐릭터 그림이 잘리지 않게 '원본'을 먼저, 가로형 비율 위주 */
+export const BANNER_RATIOS = [
+  { v: 0, l: '원본', hint: '권장' },
+  { v: 1, l: '1:1' },
+  { v: 4 / 3, l: '4:3' },
+  { v: 16 / 9, l: '16:9' },
+  { v: 2, l: '2:1' },
+];
+
 /**
  * 비율 맞춰 자르기. 드래그로 위치, 슬라이더·휠·두 손가락으로 확대.
  * src: 이미지 주소(object URL 또는 업로드된 주소)
  * onDone(blob): 잘린 이미지
+ * keepAlpha: 투명 배경을 살려 PNG 로 만든다 (썸네일 캐릭터처럼 배경색 위에 떠 보이게)
  */
-export default function ImageCropper({ open, src, title = '비율 조정', defaultRatio = 3 / 4, maxOut = 1600, onCancel, onDone }) {
+export default function ImageCropper({ open, src, title = '비율 조정', defaultRatio = 3 / 4, ratios = RATIOS, keepAlpha = false, maxOut = 1600, onCancel, onDone }) {
   const [img, setImg] = useState(null);
   const [ratio, setRatio] = useState(defaultRatio);
   const [zoom, setZoom] = useState(1);
@@ -119,17 +129,20 @@ export default function ImageCropper({ open, src, title = '비율 조정', defau
       const sy = -pos.y / scale;
       const sw = fw / scale;
       const sh = fh / scale;
-      const outW = Math.round(Math.min(maxOut * Math.min(1, r), Math.max(300, sw)));
+      const outW = Math.round(Math.min(maxOut * Math.min(1, r), maxOut, Math.max(300, sw)));
       const outH = Math.round(outW / r);
       const c = document.createElement('canvas');
       c.width = outW;
       c.height = outH;
       const ctx = c.getContext('2d');
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, outW, outH);
+      if (!keepAlpha) {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, outW, outH);
+      }
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
-      const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.92));
+      let blob = await new Promise((res) => c.toBlob(res, keepAlpha ? 'image/png' : 'image/jpeg', 0.92));
+      if (keepAlpha && blob && blob.size > 9 * 1024 * 1024) blob = await new Promise((res) => c.toBlob(res, 'image/webp', 0.92));
       if (!blob) throw new Error('이미지를 만들지 못했어요.');
       await onDone(blob, { width: outW, height: outH });
     } catch (e) {
@@ -143,7 +156,7 @@ export default function ImageCropper({ open, src, title = '비율 조정', defau
     <Modal open={open} title={title} onClose={() => !busy && onCancel()}
       footer={<><button type="button" className="btn" onClick={onCancel} disabled={busy}>취소</button><button type="button" className="btn btn-primary" onClick={done} disabled={!img || busy}>{busy ? '올리는 중…' : '이대로 사용'}</button></>}>
       <div className="crop-ratios" role="radiogroup" aria-label="비율">
-        {RATIOS.map((x) => (
+        {ratios.map((x) => (
           <button key={x.l} type="button" role="radio" aria-checked={ratio === x.v} className={ratio === x.v ? 'on' : ''} onClick={() => setRatio(x.v)}>
             {x.l}{x.hint && <small> {x.hint}</small>}
           </button>

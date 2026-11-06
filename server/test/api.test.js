@@ -213,6 +213,11 @@ test('웹툰 생성 → 편집 → 업로드 → 감상', async () => {
   const up = await alice.upload('/api/uploads/image?kind=cover');
   r = await alice.patch(`/api/webtoons/${ctx.webtoonId}`, { coverUrl: up.body.url, thumbnailUrl: up.body.url, description: '소개', visibility: 'public', genre: '액션' });
   assert.equal(r.status, 200);
+  r = await alice.patch(`/api/webtoons/${ctx.webtoonId}`, { bannerColor: '#FFA8A8' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.webtoon.bannerColor, '#ffa8a8');
+  r = await alice.patch(`/api/webtoons/${ctx.webtoonId}`, { bannerColor: 'red; background:url(x)' });
+  assert.equal(r.status, 400);
   r = await alice.patch(`/api/webtoons/${ctx.webtoonId}`, { coverUrl: 'javascript:alert(1)' });
   assert.equal(r.status, 400, '임의 URL 거부');
   r = await bob.patch(`/api/webtoons/${ctx.webtoonId}`, { title: '해킹' });
@@ -532,4 +537,19 @@ test('회차 삭제 시 카운터 정리 + 웹툰 삭제 연쇄', async () => {
   assert.equal(r.status, 200);
   assert.equal(await models.Episode.countDocuments({ webtoon: ctx.webtoonId }), 0);
   assert.equal(await models.Bookmark.countDocuments({ target: ctx.webtoonId }), 0);
+});
+
+test('그림판 펜 색 저장', async () => {
+  let r = await alice.get('/api/users/me/colors');
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.colors, []);
+  r = await alice.put('/api/users/me/colors', { colors: ['#FF4F8B', '#123abc', '#ff4f8b'] });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.colors, ['#ff4f8b', '#123abc']);
+  r = await alice.get('/api/users/me/colors');
+  assert.deepEqual(r.body.colors, ['#ff4f8b', '#123abc']);
+  r = await alice.put('/api/users/me/colors', { colors: ['blue'] });
+  assert.equal(r.status, 400);
+  r = await new Client().get('/api/users/me/colors');
+  assert.equal(r.status, 401);
 });

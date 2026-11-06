@@ -4,7 +4,7 @@ import { Bookmark, EditorDoc, Episode, Like, User, Webtoon, GENRES } from '../mo
 import { isAdmin, optionalAuth, requireAuth } from '../middleware/auth.js';
 import { writeLimiter } from '../middleware/rateLimits.js';
 import { ah, assertId, escapeRegex, forbidden, notFound, pageParams, parse } from '../utils/http.js';
-import { imageUrlField, text } from '../utils/validators.js';
+import { hexColorField, imageUrlField, text } from '../utils/validators.js';
 import { AUTHOR_FIELDS, episodeSummary, webtoonCard } from '../utils/serialize.js';
 import { deleteWebtoonCascade } from '../services/contentService.js';
 
@@ -102,6 +102,7 @@ const updateSchema = z.object({
   description: text(0, 2000, '작품 소개').optional(),
   coverUrl: imageUrlField.optional(),
   thumbnailUrl: imageUrlField.optional(),
+  bannerColor: hexColorField.optional(),
   visibility: z.enum(['public', 'private']).optional(),
 });
 

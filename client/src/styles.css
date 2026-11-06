@@ -708,3 +708,80 @@ textarea.input { resize: vertical; line-height: 1.5; }
   .draw-modal .ed-actions .btn-sm { flex: 1 1 0; }
   .pickers { gap: 10px; }
 }
+
+/* ---------------- 그림판: 내 색 (저장한 펜 색) ---------------- */
+.ed-saved { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1.5px dashed var(--line); border-radius: 8px; background: var(--paper); }
+.ed-saved-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 750; color: var(--ink-2); }
+.ed-saved-head small { color: var(--ink-3); font-weight: 600; }
+.ed-saved-btns { display: inline-flex; gap: 4px; }
+.ed-saved-btns .ed-mini { display: inline-flex; align-items: center; gap: 5px; }
+.ed-saved-now { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); display: inline-block; }
+.ed-swatches button { position: relative; }
+.ed-swatches.editing button { animation: swatch-wiggle .35s ease-in-out infinite alternate; }
+.ed-swatch-x { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border-radius: 50%; background: var(--danger); color: #fff; font-size: 12px; line-height: 16px; font-weight: 800; text-align: center; box-shadow: 0 0 0 1.5px #fff; }
+.ed-swatches-sm { margin-top: 2px; gap: 4px; }
+.ed-swatches-sm button { width: 20px; height: 20px; }
+@keyframes swatch-wiggle { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
+@media (prefers-reduced-motion: reduce) { .ed-swatches.editing button { animation: none; } }
+
+/* ---------------- 작품 배너 (썸네일) — 색 띠 위에 썸네일이 떠 있는 형태 ---------------- */
+.wt-banner {
+  --banner-bg: #dfe5ff;
+  --banner-ink: var(--ink);
+  --banner-ink-2: rgba(23, 24, 43, .62);
+  position: relative; background: var(--banner-bg); color: var(--banner-ink);
+  border: 2px solid var(--ink); border-radius: var(--r); overflow: hidden;
+  height: clamp(190px, 24vw, 260px); margin-bottom: 14px;
+}
+.wt-banner.dark { --banner-ink: #fff; --banner-ink-2: rgba(255, 255, 255, .72); }
+.wt-banner-inner {
+  height: 100%; max-width: 760px; margin: 0 auto; padding: 0 20px;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); grid-template-rows: 100%; align-items: stretch; gap: 8px;
+}
+.wt-banner-text { align-self: center; min-width: 0; padding: 12px 0; position: relative; z-index: 1; }
+.wt-banner-tagline { margin: 0 0 4px; font-size: 13px; font-weight: 650; color: var(--banner-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-banner-title { margin: 0 0 6px; font-size: clamp(22px, 3.2vw, 32px); font-weight: 850; line-height: 1.2; letter-spacing: -.02em; color: var(--banner-ink); overflow-wrap: anywhere; }
+.wt-banner-author { display: inline-block; font-size: 14px; font-weight: 650; color: var(--banner-ink-2); }
+.wt-banner-author:hover { color: var(--banner-ink); text-decoration: underline; }
+.wt-banner-stats { margin: 6px 0 0; display: flex; gap: 6px; align-items: center; font-size: 13px; font-weight: 650; color: var(--banner-ink); }
+.wt-banner-stats span { display: inline-flex; align-items: center; gap: 3px; }
+.wt-banner-stats svg { color: var(--pink); }
+.wt-banner.dark .wt-banner-stats svg { color: #ff9cbf; }
+.wt-banner-note { margin: 6px 0 0; font-size: 12px; font-weight: 600; color: var(--banner-ink-2); }
+.wt-banner-art { position: relative; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.wt-banner-art img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; object-position: bottom center; filter: drop-shadow(0 6px 14px rgba(0,0,0,.14)); }
+.wt-banner-empty { align-self: center; width: 46%; aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; border: 2px dashed currentColor; opacity: .45; font-size: 22px; font-weight: 850; }
+
+.wt-under { margin-bottom: 30px; }
+.wt-main-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.wt-main-actions .btn { width: 100%; }
+.btn.is-disabled { opacity: .45; pointer-events: none; }
+.wt-under .wt-info { display: flex; flex-direction: column; align-items: flex-start; gap: 0; }
+.wt-under .wt-author { margin-bottom: 10px; }
+
+@media (max-width: 560px) {
+  .wt-banner { height: 172px; border-radius: 8px; margin-left: calc(var(--gutter) * -1 + 4px); margin-right: calc(var(--gutter) * -1 + 4px); }
+  .wt-banner-inner { padding: 0 12px; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+  .wt-banner-title { font-size: 21px; }
+  .wt-banner-tagline { font-size: 12px; }
+  .wt-main-actions .btn-lg { height: 46px; font-size: 15px; padding: 0 10px; }
+}
+
+/* 작품 관리: 썸네일(배너) 고르기 */
+.banner-picker { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.banner-picker .img-picker { width: 100%; }
+.img-picker-banner { position: relative; display: block; width: 100%; padding: 0; border: 0; background: none; text-align: left; border-radius: var(--r); cursor: pointer; }
+.img-picker-banner .wt-banner { margin: 0; height: 168px; }
+.img-picker-banner .wt-banner-inner { padding: 0 14px; }
+.img-picker-banner .wt-banner-title { font-size: 21px; }
+.img-picker-banner:hover .wt-banner, .img-picker-banner:focus-visible .wt-banner { box-shadow: 4px 4px 0 var(--marker); }
+.img-picker-busy { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(255,255,255,.7); font-weight: 750; border-radius: var(--r); }
+.banner-colors { display: flex; flex-direction: column; gap: 6px; }
+.banner-swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.banner-sw { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid rgba(0,0,0,.15); padding: 0; cursor: pointer; position: relative; overflow: hidden; }
+.banner-sw.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink); }
+.banner-sw.auto { width: auto; padding: 0 10px; border-radius: 999px; background: var(--cobalt-soft); font-size: 12px; font-weight: 750; color: var(--ink-2); }
+.banner-sw.custom { background: conic-gradient(#ff5e5e, #ffd23f, #3dd68c, #2f9bff, #8e5cff, #ff4f8b, #ff5e5e); }
+.banner-sw.custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.pickers-cover { grid-template-columns: 150px 1fr; align-items: end; }
+.draw-size-box.clear { background-color: #fff; background-image: linear-gradient(45deg, #e4e6ee 25%, transparent 25%, transparent 75%, #e4e6ee 75%), linear-gradient(45deg, #e4e6ee 25%, transparent 25%, transparent 75%, #e4e6ee 75%); background-size: 10px 10px; background-position: 0 0, 5px 5px; }

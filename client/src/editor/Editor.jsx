@@ -59,10 +59,23 @@ function Ico({ d, size = 20 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>;
 }
 const clone = (o) => JSON.parse(JSON.stringify(o));
+/* ---------- 저장한 펜 색 (내 색): 로그인하면 계정에 저장되어 다른 기기에서도 보이고, 이 기기에도 캐시 ---------- */
+const COLOR_STORE = 'webweb.savedColors';
+export const MAX_SAVED_COLORS = 30;
+const HEX6 = /^#[0-9a-f]{6}$/i;
+function readLocalColors() {
+  try {
+    const v = JSON.parse(localStorage.getItem(COLOR_STORE) || '[]');
+    return Array.isArray(v) ? v.filter((c) => HEX6.test(c)).map((c) => c.toLowerCase()).slice(0, MAX_SAVED_COLORS) : [];
+  } catch { return []; }
+}
+function writeLocalColors(list) {
+  try { localStorage.setItem(COLOR_STORE, JSON.stringify(list)); } catch { /* 저장 불가 환경 무시 */ }
+}
 const groupBy = (arr) => arr.reduce((m, x) => { (m[x.g] = m[x.g] || []).push(x); return m; }, {});
 
-function emptyLiveDoc(w = 800, h = 1280) {
-  return { width: w, height: h, background: '#ffffff', layers: [{ ...LAYER_DEFAULTS, id: uid('l'), name: '레이어 1', tiles: new Map(), items: [] }] };
+function emptyLiveDoc(w = 800, h = 1280, bg = '#ffffff') {
+  return { width: w, height: h, background: bg, layers: [{ ...LAYER_DEFAULTS, id: uid('l'), name: '레이어 1', tiles: new Map(), items: [] }] };
 }
 
 /**
@@ -95,6 +108,8 @@ const Editor = forwardRef(function Editor({ data, docId, defaultSize, onDirtyCha
   const [ready, setReady] = useState(false);
   const [tool, setTool] = useState('brush');
   const [color, setColor] = useState('#111111');
+  const [savedColors, setSavedColors] = useState(readLocalColors);
+  const [editColors, setEditColors] = useState(false);
   const [size, setSize] = useState(6);
   const [eraserSize, setEraserSize] = useState(24);
   const [brushOpacity, setBrushOpacity] = useState(1);
@@ -271,10 +286,46 @@ const Editor = forwardRef(function Editor({ data, docId, defaultSize, onDirtyCha
   const undo = () => { const h = histRef.current; if (h.index > 0) { h.index -= 1; restore(h.list[h.index]); } };
   const redo = () => { const h = histRef.current; if (h.index < h.list.length - 1) { h.index += 1; restore(h.list[h.index]); } };
 
+  /* ---------------- 내 색 불러오기 (서버 ↔ 이 기기) ---------------- */
+  useEffect(() => {
+    let alive = true;
+    api.get('/users/me/colors').then((r) => {
+      if (!alive) return;
+      const server = (r.colors || []).filter((c) => HEX6.test(c));
+      const local = readLocalColors();
+      if (server.length === 0 && local.length > 0) {
+        // 로그인 전에 이 기기에 저장해 둔 색을 계정으로 옮김
+        api.put('/users/me/colors', { colors: local }).catch(() => {});
+        return;
+      }
+      setSavedColors(server);
+      writeLocalColors(server);
+    }).catch(() => { /* 로그인 안 됨 / 오프라인 → 이 기기 저장분 사용 */ });
+    return () => { alive = false; };
+  }, []);
+
+  function persistColors(next) {
+    setSavedColors(next);
+    writeLocalColors(next);
+    api.put('/users/me/colors', { colors: next }).catch(() => {});
+  }
+  function saveCurrentColor() {
+    const c = String(color).toLowerCase();
+    if (!HEX6.test(c)) return;
+    if (savedColors.includes(c)) { toast.info('이미 저장된 색이에요.'); return; }
+    if (savedColors.length >= MAX_SAVED_COLORS) { toast.error(`색은 최대 ${MAX_SAVED_COLORS}개까지 저장할 수 있어요. ‘편집’에서 안 쓰는 색을 지워 주세요.`); return; }
+    persistColors([...savedColors, c]);
+  }
+  function removeSavedColor(c) {
+    const next = savedColors.filter((x) => x !== c);
+    persistColors(next);
+    if (next.length === 0) setEditColors(false);
+  }
+
   /* ---------------- 불러오기 ---------------- */
   useEffect(() => {
     bufsRef.current = { a: makeCanvas(1, 1), b: makeCanvas(1, 1) };
-    const d = data && data.layers ? data : emptyLiveDoc(defaultSize?.w, defaultSize?.h);
+    const d = data && data.layers ? data : emptyLiveDoc(defaultSize?.w, defaultSize?.h, defaultSize?.bg ?? '#ffffff');
     d.layers.forEach((l) => Object.keys(LAYER_DEFAULTS).forEach((k) => { if (l[k] === undefined) l[k] = LAYER_DEFAULTS[k]; }));
     docRef.current = d;
     const top = d.layers[d.layers.length - 1].id;
@@ -937,6 +988,11 @@ const Editor = forwardRef(function Editor({ data, docId, defaultSize, onDirtyCha
         <input type="color" value={/^#[0-9a-f]{6}$/i.test(it[key]) ? it[key] : '#ffffff'} onChange={(e) => updateItem({ [key]: e.target.value }, 'debounce')} />
         {allowNone && <button type="button" className={`ed-mini ${!it[key] ? 'on' : ''}`} onClick={() => updateItem({ [key]: '' })}>없음</button>}
       </span>
+      {savedColors.length > 0 && (
+        <span className="ed-swatches ed-swatches-sm" aria-label="내 색">
+          {savedColors.map((c) => <button key={c} type="button" className={String(it[key]).toLowerCase() === c ? 'on' : ''} style={{ background: c }} onClick={(e) => { e.preventDefault(); updateItem({ [key]: c }); }} aria-label={`내 색 ${c}`} title={c} />)}
+        </span>
+      )}
     </label>
   );
   const groupedButtons = (list, current, onPick) => Object.entries(groupBy(list)).map(([g, xs]) => (
@@ -959,6 +1015,32 @@ const Editor = forwardRef(function Editor({ data, docId, defaultSize, onDirtyCha
             <div className="ed-swatches">
               {SWATCHES.map((c) => <button key={c} type="button" className={color === c ? 'on' : ''} style={{ background: c }} onClick={() => setColor(c)} aria-label={`색상 ${c}`} />)}
               <input type="color" value={color} onChange={(e) => setColor(e.target.value)} aria-label="색상 직접 선택" />
+            </div>
+          )}
+          {!isE && (
+            <div className="ed-saved">
+              <div className="ed-saved-head">
+                <span>내 색 <small>{savedColors.length}/{MAX_SAVED_COLORS}</small></span>
+                <span className="ed-saved-btns">
+                  <button type="button" className="ed-mini" onClick={saveCurrentColor} disabled={savedColors.includes(String(color).toLowerCase())}>
+                    <span className="ed-saved-now" style={{ background: color }} aria-hidden="true" /> 현재 색 저장
+                  </button>
+                  {savedColors.length > 0 && <button type="button" className={`ed-mini ${editColors ? 'on' : ''}`} onClick={() => setEditColors((v) => !v)}>{editColors ? '완료' : '편집'}</button>}
+                </span>
+              </div>
+              {savedColors.length > 0 ? (
+                <div className={`ed-swatches ${editColors ? 'editing' : ''}`}>
+                  {savedColors.map((c) => (
+                    <button key={c} type="button" className={!editColors && String(color).toLowerCase() === c ? 'on' : ''} style={{ background: c }}
+                      onClick={() => (editColors ? removeSavedColor(c) : setColor(c))}
+                      aria-label={editColors ? `내 색 ${c} 지우기` : `내 색 ${c} 사용`} title={c}>
+                      {editColors && <span className="ed-swatch-x" aria-hidden="true">×</span>}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="ed-hint">자주 쓰는 색을 저장해 두세요. 로그인한 계정에 저장돼서 다른 기기에서도 그대로 쓸 수 있어요.</p>
+              )}
             </div>
           )}
           <label className="ed-range"><span>크기 {isE ? eraserSize : size}px</span>

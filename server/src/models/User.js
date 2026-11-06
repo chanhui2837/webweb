@@ -15,6 +15,8 @@ const userSchema = new Schema(
     bio: { type: String, default: '', maxlength: 500 },
     avatarUrl: { type: String, default: '' },
     avatarPublicId: { type: String, default: '' },
+    // 그림판에서 저장한 펜 색 (예: #ff4f8b)
+    savedColors: { type: [String], default: [] },
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
     status: { type: String, enum: ['active', 'suspended'], default: 'active' },
     suspendedReason: { type: String, default: '' },

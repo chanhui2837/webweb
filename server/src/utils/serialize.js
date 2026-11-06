@@ -16,6 +16,7 @@ export function webtoonCard(w, extra = {}) {
     autoThumbnailUrl: w.autoThumbnailUrl || '',
     ownThumbnailUrl: w.thumbnailUrl || '', // 작가가 직접 올린 썸네일 (관리 화면용)
     thumbnailUrl: w.thumbnailUrl || w.coverUrl || w.autoThumbnailUrl || '',
+    bannerColor: w.bannerColor || '',
     visibility: w.visibility,
     hidden: !!w.hidden,
     author: authorOf(w.author),

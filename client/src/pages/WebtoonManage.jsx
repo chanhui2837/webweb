@@ -3,13 +3,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { GENRES, epLabel, fmtDate, fmtNum } from '../lib/format.js';
 import { useToast } from '../context/ToastContext.jsx';
-import { Empty, EpisodeStatus, Field, Icon, Modal, Spinner } from '../components/ui.jsx';
-import ImageCropper from '../components/ImageCropper.jsx';
-import DrawImageModal from '../components/DrawImageModal.jsx';
+import { BANNER_COLORS, DEFAULT_BANNER_COLOR, Empty, EpisodeStatus, Field, Icon, Modal, Spinner, WebtoonBanner, sampleEdgeColor } from '../components/ui.jsx';
+import ImageCropper, { BANNER_RATIOS } from '../components/ImageCropper.jsx';
+import DrawImageModal, { BANNER_DRAW_SIZES } from '../components/DrawImageModal.jsx';
 import { IMAGE_ACCEPT, normalizeImageFile } from '../lib/imageFile.js';
 
-/** 표지·썸네일 선택: 사진 고르기 → 비율 조정 / 직접 그리기 */
-function ImagePicker({ label, value, onChange, kind, ratio, cropRatio = 3 / 4, drawIndex = 0 }) {
+/** 표지·썸네일 선택: 사진 고르기 → 비율 조정 / 직접 그리기
+ *  preview 를 주면 기본 미리보기 상자 대신 그걸 보여 준다 (썸네일 = 배너 미리보기) */
+function ImagePicker({ label, value, onChange, kind, ratio, cropRatio = 3 / 4, ratios, keepAlpha = false, drawIndex = 0, drawSizes, drawHint, preview }) {
   const ref = useRef(null);
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -28,7 +29,8 @@ function ImagePicker({ label, value, onChange, kind, ratio, cropRatio = 3 / 4, d
   async function upload(blob) {
     setBusy(true);
     try {
-      const r = await api.upload(`/uploads/image?kind=${kind}`, blob, `${kind}.jpg`);
+      const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
+      const r = await api.upload(`/uploads/image?kind=${kind}`, blob, `${kind}.${ext}`);
       onChange(r.url);
       toast.success(`${label.split(' ')[0]}을(를) 넣었어요. ‘설정 저장’을 눌러야 반영돼요.`);
     } finally { setBusy(false); }
@@ -41,9 +43,18 @@ function ImagePicker({ label, value, onChange, kind, ratio, cropRatio = 3 / 4, d
   return (
     <div className="img-picker">
       <span className="img-picker-label">{label}</span>
-      <button type="button" className="img-picker-box" style={{ aspectRatio: ratio }} onClick={() => ref.current.click()} disabled={busy} aria-label={`${label} 사진 선택`}>
-        {value ? <img src={value} alt="" className="contain" /> : <span>{busy ? '올리는 중…' : '사진 선택'}</span>}
-      </button>
+      {preview ? (
+        <div role="button" tabIndex={0} className="img-picker-banner" aria-label={`${label} 사진 선택`} aria-disabled={busy}
+          onClick={() => !busy && ref.current.click()}
+          onKeyDown={(e) => { if (!busy && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); ref.current.click(); } }}>
+          {preview}
+          {busy && <span className="img-picker-busy">올리는 중…</span>}
+        </div>
+      ) : (
+        <button type="button" className="img-picker-box" style={{ aspectRatio: ratio }} onClick={() => ref.current.click()} disabled={busy} aria-label={`${label} 사진 선택`}>
+          {value ? <img src={value} alt="" className="contain" /> : <span>{busy ? '올리는 중…' : '사진 선택'}</span>}
+        </button>
+      )}
       <input ref={ref} type="file" accept={IMAGE_ACCEPT} hidden onChange={pick} />
       <div className="img-picker-actions">
         <button type="button" className="btn btn-sm" onClick={() => ref.current.click()} disabled={busy}><Icon name="image" size={14} /> 사진</button>
@@ -51,12 +62,57 @@ function ImagePicker({ label, value, onChange, kind, ratio, cropRatio = 3 / 4, d
         {value && <button type="button" className="btn btn-sm btn-ghost" onClick={() => setCropSrc(value)} disabled={busy}>비율 조정</button>}
         {value && <button type="button" className="btn btn-sm btn-ghost" onClick={() => onChange('')} disabled={busy}>지우기</button>}
       </div>
-      <ImageCropper open={!!cropSrc} src={cropSrc} title={`${label.split(' ')[0]} 비율 조정`} defaultRatio={cropRatio}
+      <ImageCropper open={!!cropSrc} src={cropSrc} title={`${label.split(' ')[0]} 비율 조정`} defaultRatio={cropRatio} ratios={ratios} keepAlpha={keepAlpha}
         onCancel={closeCrop}
         onDone={async (blob) => { await upload(blob); closeCrop(); }} />
-      <DrawImageModal open={drawing} title={`${label.split(' ')[0]} 그리기`} defaultIndex={drawIndex}
+      <DrawImageModal open={drawing} title={`${label.split(' ')[0]} 그리기`} defaultIndex={drawIndex} sizes={drawSizes} hint={drawHint}
         onCancel={() => setDrawing(false)}
         onDone={async (blob) => { await upload(blob); setDrawing(false); }} />
+    </div>
+  );
+}
+
+/** 썸네일 = 작품 상단 배너. 배경색 띠 위에 썸네일 그림이 떠 있는 형태 (네이버 웹툰 작품 홈처럼) */
+function BannerPicker({ form, setForm }) {
+  const toast = useToast();
+  const [picking, setPicking] = useState(false);
+  const color = form.bannerColor || '';
+  const setColor = (c) => setForm((f) => ({ ...f, bannerColor: c }));
+  const shown = form.thumbnailUrl || form.coverUrl;
+
+  async function autoColor() {
+    if (!shown) return;
+    setPicking(true);
+    const c = await sampleEdgeColor(shown);
+    setPicking(false);
+    if (c) { setColor(c); toast.success('썸네일 가장자리 색으로 배경을 맞췄어요.'); } else toast.error('이 그림에서는 색을 뽑지 못했어요. 직접 골라 주세요.');
+  }
+
+  return (
+    <div className="banner-picker">
+      <ImagePicker label="썸네일 (작품 상단 배너)" kind="thumbnail" cropRatio={0} ratios={BANNER_RATIOS} keepAlpha
+        drawIndex={0} drawSizes={BANNER_DRAW_SIZES} drawHint="배경이 투명한 상태로 시작해요. 캐릭터만 그리면 아래에서 고른 배경색 위에 떠 보여요."
+        value={form.thumbnailUrl} onChange={(v) => setForm((f) => ({ ...f, thumbnailUrl: v }))}
+        preview={(
+          <WebtoonBanner preview w={{ title: form.title }} imageUrl={shown} color={color || DEFAULT_BANNER_COLOR}
+            tagline={form.description ? form.description.split('\n')[0].slice(0, 40) : ''}>
+            {!form.thumbnailUrl && <p className="wt-banner-note">{form.coverUrl ? '썸네일이 없어서 표지를 대신 보여 주고 있어요' : '눌러서 썸네일 올리기'}</p>}
+          </WebtoonBanner>
+        )} />
+      <div className="banner-colors">
+        <span className="img-picker-label">배너 배경색</span>
+        <div className="banner-swatches" role="radiogroup" aria-label="배너 배경색">
+          <button type="button" role="radio" aria-checked={!color} className={`banner-sw auto ${!color ? 'on' : ''}`} onClick={() => setColor('')} title="기본색">기본</button>
+          {BANNER_COLORS.map((c) => (
+            <button key={c} type="button" role="radio" aria-checked={color === c} className={`banner-sw ${color === c ? 'on' : ''}`} style={{ background: c }} onClick={() => setColor(c)} aria-label={`배경색 ${c}`} />
+          ))}
+          <label className="banner-sw custom" title="직접 고르기">
+            <input type="color" value={color || DEFAULT_BANNER_COLOR} onChange={(e) => setColor(e.target.value)} aria-label="배경색 직접 고르기" />
+          </label>
+          <button type="button" className="btn btn-sm btn-ghost" onClick={autoColor} disabled={!shown || picking}>{picking ? '색 뽑는 중…' : '그림에 맞추기'}</button>
+        </div>
+        <p className="field-hint">썸네일은 작품 페이지 맨 위 배너에 떠서 보여요. 배경이 투명한 PNG(캐릭터만 있는 그림)를 올리면 고른 배경색 위에 깔끔하게 떠 보여요. 사각형 그림이면 ‘그림에 맞추기’로 배경색을 그림 가장자리와 맞춰 보세요.</p>
+      </div>
     </div>
   );
 }
@@ -76,7 +132,7 @@ export default function WebtoonManage() {
     try {
       const r = await api.get(`/webtoons/${id}/manage`);
       setData(r);
-      setForm({ title: r.webtoon.title, genre: r.webtoon.genre, description: r.webtoon.description, visibility: r.webtoon.visibility, coverUrl: r.webtoon.coverUrl, thumbnailUrl: r.webtoon.ownThumbnailUrl });
+      setForm({ title: r.webtoon.title, genre: r.webtoon.genre, description: r.webtoon.description, visibility: r.webtoon.visibility, coverUrl: r.webtoon.coverUrl, thumbnailUrl: r.webtoon.ownThumbnailUrl, bannerColor: r.webtoon.bannerColor || '' });
     } catch (e) { setError(e.message); }
   }
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -136,9 +192,10 @@ export default function WebtoonManage() {
       <div className="manage-grid">
         <form className="panel" onSubmit={save}>
           <h2>작품 설정</h2>
-          <div className="pickers">
-            <ImagePicker label="표지 (세로형)" kind="cover" ratio="3 / 4" cropRatio={3 / 4} drawIndex={0} value={form.coverUrl} onChange={(v) => setForm({ ...form, coverUrl: v })} />
-            <ImagePicker label="썸네일 (표지 없을 때)" kind="thumbnail" ratio="3 / 4" cropRatio={3 / 4} drawIndex={0} value={form.thumbnailUrl} onChange={(v) => setForm({ ...form, thumbnailUrl: v })} />
+          <BannerPicker form={form} setForm={setForm} />
+          <div className="pickers pickers-cover">
+            <ImagePicker label="표지 (세로형 · 목록용)" kind="cover" ratio="3 / 4" cropRatio={3 / 4} drawIndex={0} value={form.coverUrl} onChange={(v) => setForm((f) => ({ ...f, coverUrl: v }))} />
+            <p className="field-hint">표지는 웹툰 목록과 홈 화면 카드에 세로로 보여요. 권장 비율 3:4 또는 2:3 (예: 900×1200).</p>
           </div>
           <Field label="제목" htmlFor="m-t"><input id="m-t" className="input" maxLength={60} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
           <Field label="장르">
@@ -155,7 +212,6 @@ export default function WebtoonManage() {
               <button type="button" className={form.visibility === 'private' ? 'on' : ''} onClick={() => setForm({ ...form, visibility: 'private' })}>비공개</button>
             </div>
           </Field>
-          <p className="field-hint">목록과 홈 화면에는 세로형 표지가 잘리지 않고 그대로 보여요. 권장 비율 3:4 또는 2:3 (예: 900×1200).</p>
           {needsPublic && <p className="field-hint">비공개 작품은 회차를 업로드해도 나만 볼 수 있어요. 독자에게 보여 주려면 ‘공개’로 바꾸고 저장하세요.</p>}
           <button type="submit" className="btn btn-primary btn-block" disabled={saving}>{saving ? '저장 중…' : '설정 저장'}</button>
           <button type="button" className="btn btn-ghost btn-danger-text btn-block" onClick={removeWebtoon}>작품 삭제</button>

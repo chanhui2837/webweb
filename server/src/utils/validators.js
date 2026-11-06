@@ -69,3 +69,10 @@ export const imageUrlField = z
   .refine((v) => v === '' || v.startsWith('/uploads/') || /^https:\/\/res\.cloudinary\.com\//.test(v), {
     message: '이미지는 업로드 기능을 통해 등록해 주세요.',
   });
+
+/** #rrggbb 색상 (빈 문자열 = 기본값) */
+export const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
+export const hexColorField = z
+  .string()
+  .transform((v) => v.trim().toLowerCase())
+  .refine((v) => v === '' || HEX_COLOR_RE.test(v), { message: '색상은 #rrggbb 형식으로 입력해 주세요.' });

@@ -69,6 +69,75 @@ export function CoverImage({ src, alt = '', fallback }) {
   );
 }
 
+/* ---------------- 작품 배너 (썸네일) ----------------
+ * 네이버 웹툰 작품 홈처럼, 단색 배경 띠 위에 썸네일 그림이 떠 있고 왼쪽에 제목·작가가 놓인다.
+ * 썸네일이 투명 PNG(캐릭터만 있는 그림)면 배경색 위에 그대로 떠 보인다.
+ */
+export const DEFAULT_BANNER_COLOR = '#dfe5ff';
+export const BANNER_COLORS = ['#ffa8a8', '#ffd0a6', '#ffe58f', '#c5ecb0', '#a8e6dc', '#a9d4ff', '#c9b8ff', '#f5b8e0', '#e9e4d8', '#2b2d42'];
+
+/** 배경이 어두우면 흰 글씨 */
+export function isDarkColor(hex) {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+  if (!m) return false;
+  const [r, g, b] = m.slice(1).map((x) => parseInt(x, 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.36;
+}
+
+export function WebtoonBanner({ w, imageUrl, color, tagline, children, preview = false }) {
+  const bg = color || w.bannerColor || DEFAULT_BANNER_COLOR;
+  const src = imageUrl !== undefined ? imageUrl : w.thumbnailUrl;
+  const dark = isDarkColor(bg);
+  return (
+    <div className={`wt-banner ${dark ? 'dark' : ''} ${preview ? 'preview' : ''}`} style={{ '--banner-bg': bg }}>
+      <div className="wt-banner-inner">
+        <div className="wt-banner-text">
+          {tagline && <p className="wt-banner-tagline">{tagline}</p>}
+          {preview
+            ? <p className="wt-banner-title">{w.title || '작품 제목'}</p>
+            : <h1 className="wt-banner-title">{w.title || '작품 제목'}</h1>}
+          {children}
+        </div>
+        <div className="wt-banner-art">
+          {src ? <img src={src} alt={preview ? '' : `${w.title} 썸네일`} /> : <span className="wt-banner-empty">{(w.title || '웹웹').slice(0, 2)}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 썸네일 가장자리 색을 뽑아 배너 배경색 후보로 (사각형 그림도 배경과 자연스럽게 이어지게) */
+export function sampleEdgeColor(src) {
+  return new Promise((resolve) => {
+    const im = new Image();
+    if (!src.startsWith('blob:') && !src.startsWith('data:')) im.crossOrigin = 'anonymous';
+    im.onload = () => {
+      try {
+        const W = 64;
+        const H = Math.max(1, Math.round((im.naturalHeight / im.naturalWidth) * W));
+        const c = document.createElement('canvas');
+        c.width = W; c.height = H;
+        const ctx = c.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(im, 0, 0, W, H);
+        const { data } = ctx.getImageData(0, 0, W, H);
+        let r = 0; let g = 0; let b = 0; let n = 0;
+        const take = (x, y) => {
+          const i = (y * W + x) * 4;
+          if (data[i + 3] < 200) return; // 투명한 곳은 건너뜀
+          r += data[i]; g += data[i + 1]; b += data[i + 2]; n += 1;
+        };
+        for (let y = 0; y < H; y += 1) { take(0, y); take(1, y); take(W - 1, y); take(W - 2, y); }
+        for (let x = 0; x < W; x += 1) take(x, 0);
+        if (!n) { resolve(''); return; }
+        const hex = (v) => Math.round(v / n).toString(16).padStart(2, '0');
+        resolve(`#${hex(r)}${hex(g)}${hex(b)}`);
+      } catch { resolve(''); }
+    };
+    im.onerror = () => resolve('');
+    im.src = src;
+  });
+}
+
 export function WebtoonCard({ w, showStatus = false, to }) {
   return (
     <Link to={to || `/webtoons/${w.id}`} className="wcard">

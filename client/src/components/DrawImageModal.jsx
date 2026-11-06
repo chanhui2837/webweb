@@ -12,11 +12,19 @@ export const DRAW_SIZES = [
   { l: '16:9 가로', w: 1280, h: 720 },
 ];
 
+/** 썸네일(배너)용: 배경색 위에 떠 보이도록 투명 배경으로 시작 */
+export const BANNER_DRAW_SIZES = [
+  { l: '1:1 캐릭터 (권장)', w: 1000, h: 1000, bg: '' },
+  { l: '4:3 가로', w: 1200, h: 900, bg: '' },
+  { l: '16:9 가로', w: 1280, h: 720, bg: '' },
+  { l: '2:1 와이드', w: 1400, h: 700, bg: '' },
+];
+
 /**
  * 그 자리에서 직접 그려 이미지 만들기 (표지·썸네일용)
  * onDone(blob) 에서 업로드한다. 웹툰 편집기의 모든 도구(말풍선·레이어 등)를 그대로 쓸 수 있다.
  */
-export default function DrawImageModal({ open, title = '직접 그리기', defaultIndex = 0, onCancel, onDone }) {
+export default function DrawImageModal({ open, title = '직접 그리기', defaultIndex = 0, sizes = DRAW_SIZES, hint = '', onCancel, onDone }) {
   const toast = useToast();
   const editorRef = useRef(null);
   const [size, setSize] = useState(null);
@@ -69,21 +77,22 @@ export default function DrawImageModal({ open, title = '직접 그리기', defau
         <div className="draw-pick">
           <h2>캔버스 비율을 골라 주세요</h2>
           <div className="draw-sizes">
-            {DRAW_SIZES.map((s, i) => (
+            {sizes.map((s, i) => (
               <button key={s.l} type="button" className={`draw-size ${i === defaultIndex ? 'rec' : ''}`} onClick={() => setSize(s)}>
-                <span className="draw-size-box" style={{ aspectRatio: `${s.w} / ${s.h}` }} />
+                <span className={`draw-size-box ${s.bg === '' ? 'clear' : ''}`} style={{ aspectRatio: `${s.w} / ${s.h}` }} />
                 <strong>{s.l}</strong>
                 <small>{s.w}×{s.h}</small>
               </button>
             ))}
           </div>
+          {hint && <p className="small">{hint}</p>}
           <p className="muted small">말풍선·텍스트·장식·레이어 등 웹툰 편집기 도구를 모두 쓸 수 있어요.</p>
         </div>
       ) : (
         <div className="ed-body">
           <div className="ed-main">
             <Suspense fallback={<Spinner />}>
-              <Editor ref={editorRef} key={`${size.w}x${size.h}`} data={null} defaultSize={{ w: size.w, h: size.h }} onDirtyChange={setDirty} />
+              <Editor ref={editorRef} key={`${size.w}x${size.h}${size.bg ?? ''}`} data={null} defaultSize={{ w: size.w, h: size.h, bg: size.bg ?? '#ffffff' }} onDirtyChange={setDirty} />
             </Suspense>
           </div>
         </div>

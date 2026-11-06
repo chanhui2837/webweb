@@ -6,7 +6,7 @@ import { optionalAuth, requireAuth } from '../middleware/auth.js';
 import { imageUpload } from '../middleware/upload.js';
 import { uploadLimiter } from '../middleware/rateLimits.js';
 import { ah, badRequest, conflict, isDupKey, notFound, parse } from '../utils/http.js';
-import { nicknameField, optionalEmail, optionalPhone, text } from '../utils/validators.js';
+import { HEX_COLOR_RE, nicknameField, optionalEmail, optionalPhone, text } from '../utils/validators.js';
 import { deleteImage, saveImage } from '../services/storage.js';
 import { grantReward, walletSummary } from '../services/cookieService.js';
 import { AUTHOR_FIELDS, illustrationCard, webtoonCard } from '../utils/serialize.js';
@@ -19,6 +19,25 @@ async function maybeProfileReward(user) {
   }
   return null;
 }
+
+/* ---------- 그림판 저장 색 (펜 색 팔레트) ---------- */
+export const MAX_SAVED_COLORS = 30;
+const colorsSchema = z.object({
+  colors: z.array(z.string().trim().toLowerCase().refine((v) => HEX_COLOR_RE.test(v), { message: '색상은 #rrggbb 형식이어야 합니다.' }))
+    .max(MAX_SAVED_COLORS, { message: `색은 최대 ${MAX_SAVED_COLORS}개까지 저장할 수 있어요.` }),
+});
+
+router.get('/me/colors', requireAuth, ah(async (req, res) => {
+  const u = await User.findById(req.user._id).select('savedColors').lean();
+  res.json({ colors: u?.savedColors || [] });
+}));
+
+router.put('/me/colors', requireAuth, ah(async (req, res) => {
+  const { colors } = parse(colorsSchema, req.body);
+  const unique = [...new Set(colors)];
+  await User.updateOne({ _id: req.user._id }, { $set: { savedColors: unique } });
+  res.json({ colors: unique });
+}));
 
 /* ---------- 내 정보 수정 ---------- */
 const updateSchema = z.object({
